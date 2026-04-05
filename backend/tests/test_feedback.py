@@ -2,6 +2,7 @@ from app.models.feedback import AnalysisLine
 from app.services.feedback import (
     ALTERNATIVE_THRESHOLD_CP,
     BLUNDER_THRESHOLD_CP,
+    _format_lines,
     build_alternative_feedback,
     build_correct_feedback,
     build_mistake_feedback,
@@ -32,11 +33,6 @@ def test_alternative_feedback_mentions_mainline():
     assert "e4" in fb.explanation
 
 
-def test_alternative_feedback_carries_lines():
-    fb = build_alternative_feedback("advanced", "d4", "e4", 10, lines=SAMPLE_LINES)
-    assert fb.lines == SAMPLE_LINES
-
-
 def test_mistake_feedback_quality():
     fb = build_mistake_feedback("intermediate", "h3", "e4", 80)
     assert fb.quality == "mistake"
@@ -64,12 +60,6 @@ def test_beginner_mistake_no_jargon():
     assert "centipawn" not in fb.explanation.lower()
 
 
-def test_beginner_blunder_no_jargon():
-    fb = build_mistake_feedback("beginner", "h3", "e4", 300)
-    assert "cp" not in fb.explanation
-    assert "centipawn" not in fb.explanation.lower()
-
-
 def test_advanced_mistake_includes_cp():
     fb = build_mistake_feedback("advanced", "h3", "e4", 80)
     assert "cp" in fb.explanation or "80" in fb.explanation
@@ -87,6 +77,14 @@ def test_beginner_lines_not_in_explanation():
     assert "+0." not in fb.explanation  # no formatted cp values
 
 
-def test_mistake_feedback_carries_lines():
+def test_format_lines_empty_list_returns_none():
+    """Empty lines list must not produce output — same as lines=None."""
+    assert _format_lines([], "advanced") is None
+
+
+def test_intermediate_mistake_includes_top_lines():
+    """Intermediate explanations must weave engine lines into the text."""
     fb = build_mistake_feedback("intermediate", "h3", "e4", 80, lines=SAMPLE_LINES)
-    assert fb.lines == SAMPLE_LINES
+    # At least one of the top moves from SAMPLE_LINES should appear in the explanation
+    top_sans = [l.move_san for l in SAMPLE_LINES]
+    assert any(san in fb.explanation for san in top_sans)

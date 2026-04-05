@@ -116,6 +116,33 @@ def test_off_tree_blunder_cp_loss(engine_blunder):
 
 
 # ---------------------------------------------------------------------------
+# Off-tree feedback lines (mock engine)
+# ---------------------------------------------------------------------------
+
+def test_off_tree_with_engine_feedback_has_lines(engine_fine):
+    """Mock engine lines are converted to AnalysisLine objects and attached to feedback."""
+    session_svc.set_engine(engine_fine)
+    sid = _start_session(skill_level="advanced")["session_id"]
+    resp = client.post(f"/session/{sid}/move", json={"uci_move": "d2d4"})
+    lines = resp.json()["feedback"]["lines"]
+    assert lines is not None
+    assert len(lines) > 0
+
+
+def test_off_tree_feedback_lines_have_san(engine_fine):
+    """Lines attached to feedback must carry SAN notation, not raw UCI strings."""
+    import re
+    session_svc.set_engine(engine_fine)
+    sid = _start_session(skill_level="advanced")["session_id"]
+    resp = client.post(f"/session/{sid}/move", json={"uci_move": "d2d4"})
+    uci_pattern = re.compile(r'^[a-h][1-8][a-h][1-8][qrbn]?$')
+    for line in resp.json()["feedback"]["lines"]:
+        assert "move_san" in line
+        assert not uci_pattern.match(line["move_san"]), \
+            f"move_san looks like raw UCI: {line['move_san']}"
+
+
+# ---------------------------------------------------------------------------
 # Illegal moves / errors
 # ---------------------------------------------------------------------------
 

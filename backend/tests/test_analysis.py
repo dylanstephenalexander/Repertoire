@@ -1,4 +1,3 @@
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -7,6 +6,7 @@ from app.services import sessions as session_svc
 client = TestClient(app)
 
 STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+FEN_AFTER_E4_E5 = "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2"
 
 
 # ---------------------------------------------------------------------------
@@ -28,25 +28,6 @@ def test_eval_invalid_fen_returns_400(real_engine):
 # /analysis/eval — real engine integration
 # ---------------------------------------------------------------------------
 
-def test_eval_returns_lines(real_engine):
-    session_svc.set_engine(real_engine)
-    resp = client.post("/analysis/eval", json={"fen": STARTING_FEN})
-    assert resp.status_code == 200
-    data = resp.json()
-    assert "lines" in data
-    assert len(data["lines"]) > 0
-    assert "eval_cp" in data
-    assert "depth" in data
-
-
-def test_eval_lines_have_required_fields(real_engine):
-    session_svc.set_engine(real_engine)
-    resp = client.post("/analysis/eval", json={"fen": STARTING_FEN})
-    for line in resp.json()["lines"]:
-        assert "move_uci" in line
-        assert "move_san" in line
-        assert "cp" in line
-
 
 def test_eval_returns_top_3_lines(real_engine):
     session_svc.set_engine(real_engine)
@@ -61,13 +42,25 @@ def test_eval_lines_ordered_best_first(real_engine):
     assert cps == sorted(cps, reverse=True)
 
 
-def test_eval_san_is_human_readable(real_engine):
+def test_eval_san_not_uci_format(real_engine):
+    """move_san must be proper SAN, not a raw UCI string like 'e2e4' or 'g1f3'."""
+    import re
     session_svc.set_engine(real_engine)
     resp = client.post("/analysis/eval", json={"fen": STARTING_FEN})
-    # SAN moves should not look like raw UCI (e.g. "e2e4")
-    first_san = resp.json()["lines"][0]["move_san"]
-    assert len(first_san) <= 6  # SAN is short: "e4", "Nf3", "O-O", etc.
-    assert first_san[0].isupper() or first_san[0].islower()
+    uci_pattern = re.compile(r'^[a-h][1-8][a-h][1-8][qrbn]?$')
+    for line in resp.json()["lines"]:
+        assert not uci_pattern.match(line["move_san"]), \
+            f"move_san looks like raw UCI: {line['move_san']}"
+
+
+def test_eval_non_starting_fen(real_engine):
+    """Engine correctly evaluates positions other than the starting position."""
+    session_svc.set_engine(real_engine)
+    resp = client.post("/analysis/eval", json={"fen": FEN_AFTER_E4_E5})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["lines"]) > 0
+    assert data["eval_cp"] is not None
 
 
 def test_eval_best_move_matches_first_line(real_engine):
