@@ -1,6 +1,9 @@
 # Generated opening trees — source of truth is openings.tsv + fetch_openings.py
 backend/app/data/openings/*.json
 
+# Maia weight files — large binaries, download via scripts/fetch_maia.sh
+backend/app/data/maia/*.pb.gz
+
 # Virtualenvs
 backend/.venv/
 

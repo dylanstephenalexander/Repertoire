@@ -58,6 +58,31 @@ export interface GameSummary {
   time_class: string;
 }
 
+export interface EngineStatusResponse {
+  lc0: boolean;
+  maia_models: number[];
+}
+
+export interface ChaosStartResponse {
+  session_id: string;
+  fen: string;
+  user_color: "white" | "black";
+}
+
+export interface ChaosMoveResponse {
+  fen: string;
+  feedback: Feedback | null;
+  opening_name: string | null;
+  in_theory: boolean;
+}
+
+export interface ChaosOpponentMoveResponse {
+  uci_move: string;
+  fen: string;
+  opening_name: string | null;
+  in_theory: boolean;
+}
+
 export type MoveQuality = "best" | "good" | "inaccuracy" | "mistake" | "blunder";
 
 export interface MoveAnnotation {

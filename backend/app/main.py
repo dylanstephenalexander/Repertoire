@@ -7,7 +7,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.engine.stockfish import StockfishEngine
-from app.routers import analysis, openings, review, session
+from app.routers import analysis, chaos, openings, review, session
+from app.services.chaos import stop_all_maia_engines
 from app.services.sessions import set_engine
 
 _engine: StockfishEngine | None = None
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI):
     yield
     if _engine:
         _engine.stop()
+    stop_all_maia_engines()
 
 
 app = FastAPI(title="Repertoire", lifespan=lifespan)
@@ -50,3 +52,4 @@ app.include_router(openings.router)
 app.include_router(session.router)
 app.include_router(analysis.router)
 app.include_router(review.router)
+app.include_router(chaos.router)

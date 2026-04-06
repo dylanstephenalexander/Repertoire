@@ -30,6 +30,7 @@ interface UseSessionReturn {
   continuePlay: () => Promise<void>;
   restart: () => Promise<void>;
   requestHint: () => Promise<void>;
+  clearSession: () => void;
 }
 
 // Minimum time the "thinking" state is shown — runs in parallel with the fetch,
@@ -176,5 +177,10 @@ export function useSession(): UseSessionReturn {
     }
   }, [session]);
 
-  return { session, begin, move, retry, continuePlay, restart, requestHint };
+  const clearSession = useCallback(() => {
+    setSession(null);
+    lastParams.current = null;
+  }, []);
+
+  return { session, begin, move, retry, continuePlay, restart, requestHint, clearSession };
 }

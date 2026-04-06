@@ -1,0 +1,61 @@
+from fastapi import APIRouter, HTTPException
+
+from app.models.chaos import (
+    ChaosOpponentMoveResponse,
+    ChaosMoveRequest,
+    ChaosMoveResponse,
+    ChaosStartRequest,
+    ChaosStartResponse,
+    EngineStatusResponse,
+)
+from app.services import chaos as chaos_svc
+
+router = APIRouter(prefix="/chaos", tags=["chaos"])
+
+VALID_ELO_BANDS = {1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000}
+
+
+@router.get("/engine_status", response_model=EngineStatusResponse)
+def engine_status() -> EngineStatusResponse:
+    status = chaos_svc.engine_status()
+    return EngineStatusResponse(**status)
+
+
+@router.post("/start", response_model=ChaosStartResponse)
+def start_chaos(body: ChaosStartRequest) -> ChaosStartResponse:
+    if body.elo_band not in VALID_ELO_BANDS:
+        raise HTTPException(status_code=400, detail=f"Invalid elo_band: {body.elo_band}")
+    if body.color not in ("white", "black", "random"):
+        raise HTTPException(status_code=400, detail=f"Invalid color: {body.color}")
+    try:
+        return chaos_svc.create_chaos_session(
+            color=body.color,
+            elo_band=body.elo_band,
+            skill_level=body.skill_level,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/{session_id}/move", response_model=ChaosMoveResponse)
+def make_chaos_move(session_id: str, body: ChaosMoveRequest) -> ChaosMoveResponse:
+    try:
+        return chaos_svc.process_chaos_move(
+            session_id=session_id,
+            uci_move=body.uci_move,
+            feedback_enabled=body.feedback_enabled,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/{session_id}/opponent_move", response_model=ChaosOpponentMoveResponse)
+def chaos_opponent_move(session_id: str) -> ChaosOpponentMoveResponse:
+    try:
+        return chaos_svc.get_chaos_opponent_move(session_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))

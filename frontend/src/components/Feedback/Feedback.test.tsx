@@ -29,7 +29,7 @@ describe("Feedback", () => {
     const { container } = render(
       <Feedback {...defaultProps} feedback={null} />
     );
-    expect(container.firstChild).toBeEmptyDOMElement();
+    expect(container.firstChild).toBeNull();
   });
 
   it("shows Thinking... when opponent is thinking", () => {
