@@ -1,3 +1,5 @@
+import os
+import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -5,21 +7,26 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.engine.stockfish import StockfishEngine
-from app.routers import analysis, openings, session
+from app.routers import analysis, openings, review, session
 from app.services.sessions import set_engine
 
 _engine: StockfishEngine | None = None
 
 
+def _find_stockfish() -> str:
+    """Resolve Stockfish binary path. Priority: env var → PATH → bundled binary."""
+    if path := os.environ.get("STOCKFISH_PATH", ""):
+        return path
+    if path := shutil.which("stockfish"):
+        return path
+    bundled = Path(__file__).parent / "data" / "bin" / "stockfish"
+    return str(bundled) if bundled.exists() else ""
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _engine
-    import os
-    path = os.environ.get("STOCKFISH_PATH", "")
-    if not path:
-        # Fall back to bundled binary for non-dev deployments
-        bundled = Path(__file__).parent / "data" / "bin" / "stockfish"
-        path = str(bundled) if bundled.exists() else ""
+    path = _find_stockfish()
     if path:
         _engine = StockfishEngine(path=path)
         _engine.start()
@@ -42,3 +49,4 @@ app.add_middleware(
 app.include_router(openings.router)
 app.include_router(session.router)
 app.include_router(analysis.router)
+app.include_router(review.router)

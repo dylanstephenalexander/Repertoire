@@ -2,14 +2,19 @@ import { useState } from "react";
 import { Board } from "./components/Board/Board";
 import { EvalBar } from "./components/EvalBar/EvalBar";
 import { Feedback } from "./components/Feedback/Feedback";
+import { GameReview } from "./components/GameReview/GameReview";
 import { OpeningSelector } from "./components/OpeningSelector/OpeningSelector";
 import { useEval } from "./hooks/useEval";
 import { useSession } from "./hooks/useSession";
 import styles from "./App.module.css";
 
+type AppMode = "study" | "review";
+
 export function App() {
   const { session, begin, move, retry, continuePlay, restart } = useSession();
-  const [selectorOpen, setSelectorOpen] = useState(true);
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [mode, setMode] = useState<AppMode>("study");
+  const [skillLevel, setSkillLevel] = useState("intermediate");
 
   // eval_cp from backend is side-to-move perspective; convert to white POV
   const { evalCp: rawEvalCp } = useEval(session?.fen ?? null);
@@ -29,14 +34,46 @@ export function App() {
     await restart();
   }
 
+  if (mode === "review") {
+    return (
+      <div className={styles.root}>
+        <GameReview
+          skillLevel={skillLevel}
+          onBack={() => setMode("study")}
+        />
+      </div>
+    );
+  }
+
+  // Home screen — no active session, selector not open
+  if (!session && !selectorOpen) {
+    return (
+      <div className={styles.root}>
+        <div className={styles.home}>
+          <h1 className={styles.homeTitle}>Repertoire</h1>
+          <div className={styles.homeButtons}>
+            <button className={styles.primaryBtn} onClick={() => setSelectorOpen(true)}>
+              Study Openings
+            </button>
+            <button className={styles.secondaryBtn} onClick={() => setMode("review")}>
+              Review a Game
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.root}>
       {selectorOpen && (
         <OpeningSelector
           onStart={async (params) => {
+            setSkillLevel(params.skill_level);
             setSelectorOpen(false);
             await begin(params);
           }}
+          onBack={() => setSelectorOpen(false)}
         />
       )}
 

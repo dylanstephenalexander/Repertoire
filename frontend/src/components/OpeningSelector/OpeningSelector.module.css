@@ -21,11 +21,31 @@
   gap: 24px;
 }
 
+.modalHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .title {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  color: #7faaff;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.backBtn:hover {
+  color: #aac8ff;
 }
 
 .section {

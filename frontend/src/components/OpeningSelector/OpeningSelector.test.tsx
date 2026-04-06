@@ -29,26 +29,26 @@ beforeEach(() => {
 
 describe("OpeningSelector", () => {
   it("renders the title", async () => {
-    render(<OpeningSelector onStart={vi.fn()} />);
+    render(<OpeningSelector onStart={vi.fn()} onBack={vi.fn()} />);
     await waitFor(() => screen.getByText("Italian Game"));
-    expect(screen.getByText("Repertoire")).toBeInTheDocument();
+    expect(screen.getByText("Study Openings")).toBeInTheDocument();
   });
 
   it("loads and displays openings", async () => {
-    render(<OpeningSelector onStart={vi.fn()} />);
+    render(<OpeningSelector onStart={vi.fn()} onBack={vi.fn()} />);
     await waitFor(() => screen.getByText("Italian Game"));
     expect(screen.getByText("Sicilian Defence")).toBeInTheDocument();
   });
 
   it("Start button is disabled until opening and variation are selected", async () => {
-    render(<OpeningSelector onStart={vi.fn()} />);
+    render(<OpeningSelector onStart={vi.fn()} onBack={vi.fn()} />);
     await waitFor(() => screen.getByText("Italian Game"));
     expect(screen.getByRole("button", { name: "Start" })).toBeDisabled();
   });
 
   it("shows variations after selecting an opening", async () => {
     const user = userEvent.setup();
-    render(<OpeningSelector onStart={vi.fn()} />);
+    render(<OpeningSelector onStart={vi.fn()} onBack={vi.fn()} />);
     await waitFor(() => screen.getByText("Italian Game"));
 
     await user.click(screen.getByRole("button", { name: /Italian Game/i }));
@@ -58,7 +58,7 @@ describe("OpeningSelector", () => {
 
   it("Start button enables once opening and variation are both selected", async () => {
     const user = userEvent.setup();
-    render(<OpeningSelector onStart={vi.fn()} />);
+    render(<OpeningSelector onStart={vi.fn()} onBack={vi.fn()} />);
     await waitFor(() => screen.getByText("Italian Game"));
 
     await user.click(screen.getByRole("button", { name: /Italian Game/i }));
@@ -69,7 +69,7 @@ describe("OpeningSelector", () => {
   it("calls onStart with correct params including color from opening", async () => {
     const user = userEvent.setup();
     const onStart = vi.fn();
-    render(<OpeningSelector onStart={onStart} />);
+    render(<OpeningSelector onStart={onStart} onBack={vi.fn()} />);
     await waitFor(() => screen.getByText("Italian Game"));
 
     await user.click(screen.getByRole("button", { name: /Italian Game/i }));
@@ -87,7 +87,7 @@ describe("OpeningSelector", () => {
 
   it("selecting a different opening resets variation selection", async () => {
     const user = userEvent.setup();
-    render(<OpeningSelector onStart={vi.fn()} />);
+    render(<OpeningSelector onStart={vi.fn()} onBack={vi.fn()} />);
     await waitFor(() => screen.getByText("Italian Game"));
 
     await user.click(screen.getByRole("button", { name: /Italian Game/i }));
@@ -99,7 +99,7 @@ describe("OpeningSelector", () => {
 
   it("shows error message when API fails", async () => {
     vi.spyOn(openingsApi, "fetchOpenings").mockRejectedValue(new Error("Network error"));
-    render(<OpeningSelector onStart={vi.fn()} />);
+    render(<OpeningSelector onStart={vi.fn()} onBack={vi.fn()} />);
     await waitFor(() =>
       screen.getByText("Failed to load openings.")
     );

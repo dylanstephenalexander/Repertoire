@@ -64,7 +64,13 @@ class StockfishEngine:
     def clear_elo(self) -> None:
         self._send("setoption name UCI_LimitStrength value false")
 
-    def analyse(self, fen: str, moves: list[str] | None = None) -> dict:
+    def analyse(
+        self,
+        fen: str,
+        moves: list[str] | None = None,
+        multipv: int | None = None,
+        depth: int | None = None,
+    ) -> dict:
         """
         Analyse a position and return top lines.
 
@@ -72,16 +78,19 @@ class StockfishEngine:
           {
             "eval_cp": int,          # centipawns for side to move (best line)
             "best_move": str,        # UCI of best move
+            "depth": int,            # actual search depth reached
             "lines": [               # top N lines, best first
               {"move_uci": str, "cp": int},
               ...
             ]
           }
         """
+        effective_multipv = multipv if multipv is not None else self._multipv
+        effective_depth = depth if depth is not None else self._depth
         with self._lock:
-            self._send(f"setoption name MultiPV value {self._multipv}")
+            self._send(f"setoption name MultiPV value {effective_multipv}")
             self._set_position(fen, moves)
-            self._send(f"go depth {self._depth}")
+            self._send(f"go depth {effective_depth}")
             return self._collect_multipv_result()
 
     # ------------------------------------------------------------------

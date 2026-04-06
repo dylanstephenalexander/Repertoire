@@ -46,3 +46,35 @@ export interface EvalResponse {
   eval_cp: number | null;
   depth: number;
 }
+
+export interface GameSummary {
+  url: string;
+  pgn: string;
+  white: string;
+  black: string;
+  result: string;
+  date: string;
+  time_class: string;
+}
+
+export type MoveQuality = "best" | "good" | "inaccuracy" | "mistake" | "blunder";
+
+export interface MoveAnnotation {
+  move_number: number;
+  color: "white" | "black";
+  move_san: string;
+  move_uci: string;
+  quality: MoveQuality;
+  cp_loss: number | null;
+  best_move_san: string | null;
+  explanation: string | null;
+  fen_before: string;
+  eval_cp: number | null;
+}
+
+export interface ReviewResponse {
+  white: string;
+  black: string;
+  result: string;
+  moves: MoveAnnotation[];
+}

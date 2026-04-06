@@ -6,12 +6,13 @@ import styles from "./OpeningSelector.module.css";
 
 interface OpeningSelectorProps {
   onStart: (params: SessionStartParams) => void;
+  onBack: () => void;
 }
 
 const SKILL_LEVELS = ["beginner", "intermediate", "advanced"] as const;
 type SkillLevel = (typeof SKILL_LEVELS)[number];
 
-export function OpeningSelector({ onStart }: OpeningSelectorProps) {
+export function OpeningSelector({ onStart, onBack }: OpeningSelectorProps) {
   const [openings, setOpenings] = useState<OpeningSummary[]>([]);
   const [selectedOpening, setSelectedOpening] =
     useState<OpeningSummary | null>(null);
@@ -45,7 +46,10 @@ export function OpeningSelector({ onStart }: OpeningSelectorProps) {
   return (
     <div className={styles.overlay}>
       <div className={styles.modal}>
-        <h1 className={styles.title}>Repertoire</h1>
+        <div className={styles.modalHeader}>
+          <button className={styles.backBtn} onClick={onBack}>← Back</button>
+          <h1 className={styles.title}>Study Openings</h1>
+        </div>
 
         {error && <p className={styles.error}>{error}</p>}
 
