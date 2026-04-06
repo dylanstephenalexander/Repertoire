@@ -11,7 +11,7 @@ interface BoardProps {
 }
 
 /** Return the UCI move string if the drop is legal, or null. */
-function resolveMove(
+export function resolveMove(
   fen: string,
   from: string,
   to: string
@@ -22,9 +22,8 @@ function resolveMove(
   // Direct match
   const direct = legalMoves.find((m) => m.from === from && m.to === to);
   if (direct) {
-    return direct.promotion
-      ? `${from}${to}${direct.promotion}`
-      : `${from}${to}`;
+    // Always promote to queen — no promotion-picker UI in this app
+    return direct.promotion ? `${from}${to}q` : `${from}${to}`;
   }
 
   // King dragged onto own rook → castling. Map rook square to king destination.

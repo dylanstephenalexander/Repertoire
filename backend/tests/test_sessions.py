@@ -230,6 +230,99 @@ def test_beginner_explanation_no_jargon():
 
 
 # ---------------------------------------------------------------------------
+# Undo
+# ---------------------------------------------------------------------------
+
+def test_undo_restores_fen_and_allows_retry(engine_fine):
+    """After an off-tree move, undo should restore the previous FEN."""
+    session_svc.set_engine(engine_fine)
+    sid = _start_session()["session_id"]
+    original_fen = client.get(f"/session/{sid}/state").json()["current_fen"]
+
+    client.post(f"/session/{sid}/move", json={"uci_move": "d2d4"})
+    after_fen = client.get(f"/session/{sid}/state").json()["current_fen"]
+    assert after_fen != original_fen
+
+    resp = client.post(f"/session/{sid}/undo")
+    assert resp.status_code == 200
+    assert resp.json()["fen"] == original_fen
+
+    restored_fen = client.get(f"/session/{sid}/state").json()["current_fen"]
+    assert restored_fen == original_fen
+
+
+def test_undo_with_nothing_to_undo_returns_400():
+    sid = _start_session()["session_id"]
+    resp = client.post(f"/session/{sid}/undo")
+    assert resp.status_code == 400
+
+
+def test_undo_restores_tree_cursor_so_correct_move_is_accepted(engine_fine):
+    """After undo, the tree cursor should be reset so the mainline move is accepted."""
+    session_svc.set_engine(engine_fine)
+    sid = _start_session()["session_id"]
+
+    client.post(f"/session/{sid}/move", json={"uci_move": "d2d4"})  # off-tree
+    client.post(f"/session/{sid}/undo")
+    resp = client.post(f"/session/{sid}/move", json={"uci_move": "e2e4"})  # back on tree
+    assert resp.json()["result"] == "correct"
+
+
+# ---------------------------------------------------------------------------
+# Elo application
+# ---------------------------------------------------------------------------
+
+def test_elo_set_on_engine_for_off_tree_move():
+    """When a session has an elo, set_elo should be called before engine analysis."""
+    call_log: list[int | None] = []
+
+    class TrackingEngine:
+        def analyse(self, fen, moves=None):
+            return {"eval_cp": 20, "best_move": "e2e4", "lines": [], "depth": 15}
+
+        def set_elo(self, elo: int) -> None:
+            call_log.append(elo)
+
+        def clear_elo(self) -> None:
+            call_log.append(None)
+
+        def start(self) -> None: pass
+        def stop(self) -> None: pass
+
+    session_svc.set_engine(TrackingEngine())
+    resp = client.post(
+        "/session/start",
+        json={
+            "opening_id": "italian",
+            "variation_id": "giuoco_piano",
+            "color": "white",
+            "mode": "study",
+            "skill_level": "beginner",
+            "elo": 1500,
+        },
+    )
+    sid = resp.json()["session_id"]
+    client.post(f"/session/{sid}/move", json={"uci_move": "d2d4"})  # off-tree → triggers engine
+
+    assert 1500 in call_log, "set_elo(1500) was never called"
+    assert None in call_log, "clear_elo() was never called"
+
+
+def test_elo_not_set_when_absent(engine_fine):
+    """When session has no elo, set_elo should never be called."""
+    call_log: list = []
+    original_set_elo = engine_fine.set_elo
+    engine_fine.set_elo = lambda elo: call_log.append(elo)
+
+    session_svc.set_engine(engine_fine)
+    sid = _start_session()["session_id"]  # no elo
+    client.post(f"/session/{sid}/move", json={"uci_move": "d2d4"})
+
+    assert call_log == [], f"set_elo should not be called without elo, but got: {call_log}"
+    engine_fine.set_elo = original_set_elo
+
+
+# ---------------------------------------------------------------------------
 # Test isolation
 # ---------------------------------------------------------------------------
 

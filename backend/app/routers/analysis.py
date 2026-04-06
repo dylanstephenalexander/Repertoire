@@ -1,7 +1,7 @@
 import chess
 from fastapi import APIRouter, HTTPException
 
-from app.engine.stockfish import DEFAULT_DEPTH, DEFAULT_MULTIPV
+
 from app.models.analysis import EvalRequest, EvalResponse
 from app.models.feedback import AnalysisLine
 from app.services.sessions import get_engine
@@ -33,6 +33,6 @@ def eval_position(body: EvalRequest) -> EvalResponse:
 
     return EvalResponse(
         lines=lines,
-        depth=DEFAULT_DEPTH,
+        depth=result.get("depth", 0),
         eval_cp=result.get("eval_cp"),
     )

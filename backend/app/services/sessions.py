@@ -114,8 +114,14 @@ def process_move(session_id: str, uci_move: str) -> MoveResult:
         _update_session(session, uci_move, new_fen, {})
         return MoveResult(result="mistake", feedback=feedback, fen=new_fen)
 
-    pre_eval = _engine.analyse(session.current_fen)
-    post_eval = _engine.analyse(new_fen)
+    if session.elo is not None:
+        _engine.set_elo(session.elo)
+    try:
+        pre_eval = _engine.analyse(session.current_fen)
+        post_eval = _engine.analyse(new_fen)
+    finally:
+        if session.elo is not None:
+            _engine.clear_elo()
 
     pre_cp = pre_eval["eval_cp"] or 0
     post_cp = post_eval["eval_cp"] or 0
@@ -188,7 +194,13 @@ def get_opponent_move(session_id: str) -> OpponentMoveResponse:
         # Off-tree or end of line: fall back to engine best move
         if _engine is None:
             raise ValueError("No opponent move available — end of opening line")
-        result = _engine.analyse(session.current_fen)
+        if session.elo is not None:
+            _engine.set_elo(session.elo)
+        try:
+            result = _engine.analyse(session.current_fen)
+        finally:
+            if session.elo is not None:
+                _engine.clear_elo()
         uci_move = result.get("best_move")
         if not uci_move:
             raise ValueError("Engine returned no best move")
