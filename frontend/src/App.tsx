@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Chess } from "chess.js";
 import { Board } from "./components/Board/Board";
+import { CapturedPieces } from "./components/CapturedPieces/CapturedPieces";
 import { ChaosSelector } from "./components/ChaosSelector/ChaosSelector";
 import { EvalBar } from "./components/EvalBar/EvalBar";
 import { DebugPanel } from "./components/DebugPanel/DebugPanel";
@@ -231,12 +232,20 @@ export function App() {
         </aside>
 
         <main className={styles.boardWrapper}>
+          <CapturedPieces
+            fen={displayFen ?? currentFen}
+            color={currentColor === "white" ? "black" : "white"}
+          />
           <Board
             fen={displayFen ?? currentFen}
             orientation={currentColor}
             onMove={isStudy ? move : chaosMove}
             disabled={isDisabled}
             hintMove={isStudy && !isReviewing ? (session!.hint?.uci || undefined) : undefined}
+          />
+          <CapturedPieces
+            fen={displayFen ?? currentFen}
+            color={currentColor}
           />
         </main>
 
