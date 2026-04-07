@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
 import styles from "./Board.module.css";
@@ -48,9 +48,20 @@ export function resolveMove(
 
 export function Board({ fen, orientation, onMove, disabled, hintMove }: BoardProps) {
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
+  const [shaking, setShaking] = useState(false);
+  const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerShake = useCallback(() => {
+    if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current);
+    setShaking(true);
+    shakeTimeoutRef.current = setTimeout(() => setShaking(false), 150);
+  }, []);
 
   function handleSquareClick({ square }: { square: string }) {
-    if (disabled) return;
+    if (disabled) {
+      triggerShake();
+      return;
+    }
 
     if (selectedSquare) {
       const uci = resolveMove(fen, selectedSquare, square);
@@ -87,10 +98,16 @@ export function Board({ fen, orientation, onMove, disabled, hintMove }: BoardPro
     sourceSquare: string;
     targetSquare: string | null;
   }): boolean {
-    if (disabled || !targetSquare) return false;
+    if (disabled || !targetSquare) {
+      triggerShake();
+      return false;
+    }
     setSelectedSquare(null);
     const uci = resolveMove(fen, sourceSquare, targetSquare);
-    if (!uci) return false;
+    if (!uci) {
+      triggerShake();
+      return false;
+    }
     onMove(uci);
     return true;
   }
@@ -112,7 +129,7 @@ export function Board({ fen, orientation, onMove, disabled, hintMove }: BoardPro
   }
 
   return (
-    <div className={styles.wrapper}>
+    <div className={`${styles.wrapper}${shaking ? ` ${styles.shake}` : ""}`}>
       <Chessboard
         options={{
           position: fen,
@@ -121,6 +138,7 @@ export function Board({ fen, orientation, onMove, disabled, hintMove }: BoardPro
           onPieceDrop: handleDrop,
           onSquareClick: handleSquareClick,
           squareStyles: customSquareStyles,
+          dropSquareStyle: { boxShadow: "inset 0 0 0 3px rgba(100, 180, 255, 0.8)" },
           animationDurationInMs: 150,
         }}
       />

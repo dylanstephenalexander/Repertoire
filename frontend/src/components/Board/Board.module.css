@@ -2,3 +2,19 @@
   width: 100%;
   max-width: 560px;
 }
+
+@keyframes shake {
+  0% {
+    transform: translateX(0);
+  }
+  30% {
+    transform: translateX(-6px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.shake {
+  animation: shake 0.15s ease-out;
+}
