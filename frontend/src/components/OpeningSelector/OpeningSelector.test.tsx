@@ -81,7 +81,6 @@ describe("OpeningSelector", () => {
       variation_id: "giuoco_piano",
       color: "white",
       mode: "study",
-      skill_level: "intermediate",
     });
   });
 

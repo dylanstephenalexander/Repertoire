@@ -11,7 +11,6 @@ export type { ChaosStartResponse, ChaosMoveResponse, ChaosOpponentMoveResponse }
 export interface ChaosStartParams {
   color: "white" | "black" | "random";
   elo_band: number;
-  skill_level: string;
 }
 
 export function fetchEngineStatus(): Promise<EngineStatusResponse> {

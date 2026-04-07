@@ -22,7 +22,6 @@ const AFTER_E5_FEN = "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0
 const DEFAULT_PARAMS = {
   color: "white" as const,
   elo_band: 1500,
-  skill_level: "intermediate",
 };
 
 const GOOD_MOVE_RESP = {

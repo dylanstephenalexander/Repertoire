@@ -17,7 +17,7 @@ export interface ReviewState {
 export interface UseReviewReturn {
   state: ReviewState;
   loadGames: (params: FetchGamesParams) => Promise<void>;
-  analyse: (pgn: string, skillLevel: string) => Promise<void>;
+  analyse: (pgn: string) => Promise<void>;
   goToMove: (index: number) => void;
   nextMove: () => void;
   prevMove: () => void;
@@ -66,10 +66,10 @@ export function useReview(): UseReviewReturn {
     }
   }, []);
 
-  const analyse = useCallback(async (pgn: string, skillLevel: string) => {
+  const analyse = useCallback(async (pgn: string) => {
     setState((s) => ({ ...s, phase: "analysing", error: null }));
     try {
-      const review = await analyseGame(pgn, skillLevel);
+      const review = await analyseGame(pgn);
       setState((s) => ({ ...s, phase: "reviewing", review, currentMoveIndex: -1 }));
     } catch (err) {
       setState((s) => ({

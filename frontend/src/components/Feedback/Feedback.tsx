@@ -34,7 +34,7 @@ export function Feedback({
   return (
     <div className={`${styles.panel} ${styles[feedback.quality]}`}>
       <span className={styles.label}>{QUALITY_LABELS[feedback.quality]}</span>
-      <p className={styles.explanation}>{translateExplanation(feedback.explanation, notationMode)}</p>
+      <p className={styles.explanation}>{feedback.llm_explanation ? feedback.explanation : translateExplanation(feedback.explanation, notationMode)}</p>
       {awaitingDecision && (
         <div className={styles.actions}>
           <button className={styles.actionBtn} onClick={onRetry}>

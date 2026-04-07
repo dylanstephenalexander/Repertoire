@@ -1,3 +1,4 @@
+import asyncio
 import time
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -13,7 +14,9 @@ from app.services.feedback import (
     build_alternative_feedback,
     build_correct_feedback,
     build_mistake_feedback,
+    quality_from_cp_loss,
 )
+from app.services.llm import get_explanation
 from app.services.openings import get_variation_tree
 
 # In-memory session store
@@ -266,7 +269,7 @@ def get_session(session_id: str) -> SessionState | None:
     return _sessions.get(session_id)
 
 
-def process_move(session_id: str, uci_move: str) -> MoveResult:
+async def process_move(session_id: str, uci_move: str) -> MoveResult:
     session = _sessions.get(session_id)
     if session is None:
         raise KeyError(f"Session not found: {session_id}")
@@ -311,11 +314,12 @@ def process_move(session_id: str, uci_move: str) -> MoveResult:
         _update_session(session, uci_move, new_fen, {})
         return MoveResult(result="mistake", feedback=feedback, fen=new_fen)
 
-    cp_loss, raw_lines, best_move_uci, debug_msg = evaluate_off_tree_eval(
-        session_id, session.current_fen, new_fen, uci_move, session.elo
+    pre_fen = session.current_fen
+    cp_loss, raw_lines, best_move_uci, debug_msg = await asyncio.to_thread(
+        evaluate_off_tree_eval, session_id, pre_fen, new_fen, uci_move, session.elo
     )
 
-    pre_board = chess.Board(session.current_fen)
+    pre_board = chess.Board(pre_fen)
     lines = _to_analysis_lines(raw_lines, pre_board)
     best_san = lines[0].move_san if lines else (best_move_uci or uci_move)
 
@@ -334,18 +338,22 @@ def process_move(session_id: str, uci_move: str) -> MoveResult:
             cp_loss,
             lines=lines,
         )
+        llm_debug = "LLM: skipped (alternative move)"
         result = "alternative"
     else:
+        quality = quality_from_cp_loss(cp_loss)
+        llm_exp, llm_debug = await get_explanation(pre_fen, played_san, best_san, cp_loss, quality)
         feedback = build_mistake_feedback(
             played_san,
             best_san,
             cp_loss,
             lines=lines,
+            explanation=llm_exp,
         )
         result = feedback.quality
 
     _update_session(session, uci_move, new_fen, {})
-    return MoveResult(result=result, feedback=feedback, fen=new_fen, debug_msg=debug_msg)
+    return MoveResult(result=result, feedback=feedback, fen=new_fen, debug_msg=debug_msg, llm_debug_msg=llm_debug)
 
 
 def get_hint(session_id: str) -> dict:

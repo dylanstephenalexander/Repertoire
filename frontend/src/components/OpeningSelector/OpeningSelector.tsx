@@ -9,16 +9,12 @@ interface OpeningSelectorProps {
   onBack: () => void;
 }
 
-const SKILL_LEVELS = ["beginner", "intermediate", "advanced"] as const;
-type SkillLevel = (typeof SKILL_LEVELS)[number];
-
 export function OpeningSelector({ onStart, onBack }: OpeningSelectorProps) {
   const [openings, setOpenings] = useState<OpeningSummary[]>([]);
   const [selectedOpening, setSelectedOpening] =
     useState<OpeningSummary | null>(null);
   const [selectedVariation, setSelectedVariation] =
     useState<VariationSummary | null>(null);
-  const [skillLevel, setSkillLevel] = useState<SkillLevel>("intermediate");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,7 +35,6 @@ export function OpeningSelector({ onStart, onBack }: OpeningSelectorProps) {
       variation_id: selectedVariation.id,
       color: selectedOpening.color,
       mode: "study",
-      skill_level: skillLevel,
     });
   }
 
@@ -89,21 +84,6 @@ export function OpeningSelector({ onStart, onBack }: OpeningSelectorProps) {
             </ul>
           </section>
         )}
-
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Skill level</h2>
-          <div className={styles.skillRow}>
-            {SKILL_LEVELS.map((level) => (
-              <button
-                key={level}
-                className={`${styles.chip} ${skillLevel === level ? styles.selected : ""}`}
-                onClick={() => setSkillLevel(level)}
-              >
-                {level.charAt(0).toUpperCase() + level.slice(1)}
-              </button>
-            ))}
-          </div>
-        </section>
 
         <button
           className={styles.startButton}

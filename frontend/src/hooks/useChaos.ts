@@ -38,6 +38,7 @@ interface ChaosState {
   status: ChaosStatus;
   feedback: Feedback | null;
   debugMsg: string | null;
+  llmDebugMsg: string | null;
   opponentMoveDebug: string | null;
   openingName: string | null;
   inTheory: boolean;
@@ -122,6 +123,7 @@ export function useChaos(): UseChaosReturn {
         status: "playing",
         feedback: null,
         debugMsg: null,
+        llmDebugMsg: null,
         opponentMoveDebug: null,
         openingName: null,
         inTheory: false,
@@ -166,6 +168,7 @@ export function useChaos(): UseChaosReturn {
           fen: resp.fen,
           feedback: mate ?? resp.feedback ?? null,
           debugMsg: resp.debug_msg ?? null,
+          llmDebugMsg: resp.llm_debug_msg ?? null,
           openingName: resp.opening_name ?? s.openingName,
           inTheory: resp.in_theory,
           ...(mate ? { status: "complete" as const } : {}),

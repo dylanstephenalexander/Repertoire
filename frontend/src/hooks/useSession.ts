@@ -35,6 +35,7 @@ interface SessionState {
   status: SessionStatus;
   feedback: Feedback | null;
   debugMsg: string | null;
+  llmDebugMsg: string | null;
   score: number;
   moveCount: number;
   hint: { san: string; uci: string } | null;
@@ -106,6 +107,7 @@ export function useSession(): UseSessionReturn {
         status: "playing",
         feedback: null,
         debugMsg: null,
+        llmDebugMsg: null,
         score: 0,
         moveCount: 0,
         hint: null,
@@ -146,6 +148,7 @@ export function useSession(): UseSessionReturn {
               fen: resp.fen,
               feedback: mate ?? resp.feedback,
               debugMsg: resp.debug_msg ?? null,
+              llmDebugMsg: resp.llm_debug_msg ?? null,
               score: newScore,
               moveCount: newMoveCount,
               ...(mate ? { status: "complete" as const } : {}),

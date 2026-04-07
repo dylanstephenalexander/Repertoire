@@ -21,6 +21,7 @@ export interface Feedback {
   explanation: string;
   centipawn_loss: number | null;
   lines: AnalysisLine[] | null;
+  llm_explanation: boolean;
 }
 
 export interface SessionStartResponse {
@@ -35,6 +36,7 @@ export interface MoveResponse {
   fen: string;
   eval_cp: number | null;
   debug_msg: string | null;
+  llm_debug_msg: string | null;
 }
 
 export interface OpponentMoveResponse {
@@ -76,6 +78,7 @@ export interface ChaosMoveResponse {
   opening_name: string | null;
   in_theory: boolean;
   debug_msg: string | null;
+  llm_debug_msg: string | null;
 }
 
 export interface ChaosOpponentMoveResponse {

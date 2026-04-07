@@ -37,9 +37,9 @@ def start_chaos(body: ChaosStartRequest) -> ChaosStartResponse:
 
 
 @router.post("/{session_id}/move", response_model=ChaosMoveResponse)
-def make_chaos_move(session_id: str, body: ChaosMoveRequest) -> ChaosMoveResponse:
+async def make_chaos_move(session_id: str, body: ChaosMoveRequest) -> ChaosMoveResponse:
     try:
-        return chaos_svc.process_chaos_move(
+        return await chaos_svc.process_chaos_move(
             session_id=session_id,
             uci_move=body.uci_move,
             feedback_enabled=body.feedback_enabled,

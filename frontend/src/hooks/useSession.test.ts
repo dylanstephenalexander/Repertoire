@@ -24,7 +24,6 @@ const DEFAULT_START_PARAMS = {
   variation_id: "giuoco_piano",
   color: "white" as const,
   mode: "study" as const,
-  skill_level: "beginner",
 };
 
 const CORRECT_FEEDBACK = {

@@ -7,7 +7,6 @@ import type { GameSummary } from "../../types";
 import styles from "./GameReview.module.css";
 
 interface GameReviewProps {
-  skillLevel: string;
   onBack: () => void;
 }
 
@@ -19,7 +18,7 @@ function nextMonth(year: number, month: number) {
 }
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-export function GameReview({ skillLevel, onBack }: GameReviewProps) {
+export function GameReview({ onBack }: GameReviewProps) {
   const { state, loadGames, analyse, goToMove, nextMove, prevMove, reset, currentFen, currentEvalCp, currentAnnotation } = useReview();
 
   const [source, setSource] = useState<"chess.com" | "lichess">("chess.com");
@@ -165,7 +164,7 @@ export function GameReview({ skillLevel, onBack }: GameReviewProps) {
                 <ul className={styles.list}>
                   {games.map((g) => (
                     <li key={g.url}>
-                      <GameChip game={g} onAnalyse={() => analyse(g.pgn, skillLevel)} />
+                      <GameChip game={g} onAnalyse={() => analyse(g.pgn)} />
                     </li>
                   ))}
                 </ul>

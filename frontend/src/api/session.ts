@@ -10,7 +10,6 @@ export interface SessionStartParams {
   variation_id: string;
   color: "white" | "black";
   mode: "study";
-  skill_level: string;
 }
 
 export function startSession(

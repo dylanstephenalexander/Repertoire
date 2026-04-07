@@ -12,11 +12,13 @@ class Feedback(BaseModel):
     explanation: str
     centipawn_loss: int | None = None
     lines: list[AnalysisLine] | None = None  # top N candidates from pre-move position
+    llm_explanation: bool = False  # skip SAN→English translation on frontend
 
 
 class MoveResult(BaseModel):
     result: str  # "correct" | "alternative" | "mistake" | "blunder" | "end"
     feedback: Feedback
     fen: str
-    eval_cp: int | None = None   # best line cp after the move
-    debug_msg: str | None = None  # temporary: pre-eval cache diagnostics
+    eval_cp: int | None = None
+    debug_msg: str | None = None       # engine timing diagnostics
+    llm_debug_msg: str | None = None   # LLM call diagnostics

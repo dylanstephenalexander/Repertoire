@@ -10,8 +10,6 @@ interface ChaosSelectorProps {
 }
 
 const ELO_BANDS = [1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000] as const;
-const SKILL_LEVELS = ["beginner", "intermediate", "advanced"] as const;
-type SkillLevel = (typeof SKILL_LEVELS)[number];
 type ColorChoice = "white" | "black" | "random";
 
 export function ChaosSelector({
@@ -22,7 +20,6 @@ export function ChaosSelector({
 }: ChaosSelectorProps) {
   const [eloBand, setEloBand] = useState<number | null>(null);
   const [color, setColor] = useState<ColorChoice>("random");
-  const [skillLevel, setSkillLevel] = useState<SkillLevel>("intermediate");
 
   // Persist last-used Elo band
   useEffect(() => {
@@ -33,7 +30,7 @@ export function ChaosSelector({
   function handleStart() {
     if (!eloBand) return;
     localStorage.setItem("chaos_elo_band", String(eloBand));
-    onStart({ color, elo_band: eloBand, skill_level: skillLevel });
+    onStart({ color, elo_band: eloBand });
   }
 
   function bandLabel(band: number) {
@@ -92,21 +89,6 @@ export function ChaosSelector({
                 onClick={() => setColor(c)}
               >
                 {c === "random" ? "Random" : c.charAt(0).toUpperCase() + c.slice(1)}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Skill level</h2>
-          <div className={styles.colorRow}>
-            {SKILL_LEVELS.map((level) => (
-              <button
-                key={level}
-                className={`${styles.chip} ${skillLevel === level ? styles.selected : ""}`}
-                onClick={() => setSkillLevel(level)}
-              >
-                {level.charAt(0).toUpperCase() + level.slice(1)}
               </button>
             ))}
           </div>

@@ -1,3 +1,4 @@
+import asyncio
 import random
 import uuid
 from dataclasses import dataclass, field
@@ -15,7 +16,9 @@ from app.models.feedback import AnalysisLine, Feedback
 from app.services.feedback import (
     ALTERNATIVE_THRESHOLD_CP,
     build_mistake_feedback,
+    quality_from_cp_loss,
 )
+from app.services.llm import get_explanation
 from app.services.opening_detect import detect_opening
 from app.services.sessions import (  # shared Stockfish + pre_eval machinery
     evaluate_off_tree_eval,
@@ -71,7 +74,7 @@ def create_chaos_session(
     )
 
 
-def process_chaos_move(
+async def process_chaos_move(
     session_id: str,
     uci_move: str,
     feedback_enabled: bool,
@@ -103,8 +106,9 @@ def process_chaos_move(
 
     feedback: Feedback | None = None
     debug_msg: str | None = None
+    llm_debug_msg: str | None = None
     if feedback_enabled:
-        feedback, debug_msg = _build_chaos_feedback(session_id, pre_fen, new_fen, played_san, uci_move)
+        feedback, debug_msg, llm_debug_msg = await _build_chaos_feedback(session_id, pre_fen, new_fen, played_san, uci_move)
 
     return ChaosMoveResponse(
         fen=new_fen,
@@ -112,6 +116,7 @@ def process_chaos_move(
         opening_name=session.opening_name,
         in_theory=opening_hit is not None,
         debug_msg=debug_msg,
+        llm_debug_msg=llm_debug_msg,
     )
 
 
@@ -190,31 +195,33 @@ def _get_engine_move(fen: str, elo_band: int) -> str:
     return _maia_engines[elo_band].best_move(fen)
 
 
-def _build_chaos_feedback(
+async def _build_chaos_feedback(
     session_id: str,
     pre_fen: str,
     post_fen: str,
     played_san: str,
     uci_move: str,
-) -> tuple[Feedback | None, str | None]:
+) -> tuple[Feedback | None, str | None, str | None]:
     if get_engine() is None:
-        return None, None
+        return None, None, None
 
     try:
-        cp_loss, raw_lines, best_move_uci, debug_msg = evaluate_off_tree_eval(
-            session_id, pre_fen, post_fen, uci_move, None
+        cp_loss, raw_lines, best_move_uci, debug_msg = await asyncio.to_thread(
+            evaluate_off_tree_eval, session_id, pre_fen, post_fen, uci_move, None
         )
     except Exception:
-        return None, None
+        return None, None, None
 
     if cp_loss <= ALTERNATIVE_THRESHOLD_CP:
-        return None, debug_msg  # Good move — no feedback needed, but still emit debug
+        return None, debug_msg, None  # Good move — no feedback needed
 
     pre_board = chess.Board(pre_fen)
     lines = _to_analysis_lines(raw_lines, pre_board)
     best_san = lines[0].move_san if lines else (best_move_uci or uci_move)
 
-    return build_mistake_feedback(played_san, best_san, cp_loss, lines=lines), debug_msg
+    quality = quality_from_cp_loss(cp_loss)
+    llm_exp, llm_debug = await get_explanation(pre_fen, played_san, best_san, cp_loss, quality)
+    return build_mistake_feedback(played_san, best_san, cp_loss, lines=lines, explanation=llm_exp), debug_msg, llm_debug
 
 
 def _to_analysis_lines(raw_lines: list[dict], board: chess.Board) -> list[AnalysisLine]:

@@ -55,7 +55,6 @@ export function App() {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [clearSession, clearChaosSession]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [skillLevel, setSkillLevel] = useState("intermediate");
   const [guided, setGuided] = useState(false);
   const notationMode: NotationMode = "readable";
 
@@ -93,7 +92,7 @@ export function App() {
   if (mode === "review") {
     return (
       <div className={styles.root}>
-        <GameReview skillLevel={skillLevel} onBack={() => navigate("home")} />
+        <GameReview onBack={() => navigate("home")} />
       </div>
     );
   }
@@ -126,7 +125,6 @@ export function App() {
       <div className={styles.root}>
         <OpeningSelector
           onStart={async (params) => {
-            setSkillLevel(params.skill_level);
             await begin(params);
           }}
           onBack={() => navigate("home")}
@@ -141,7 +139,6 @@ export function App() {
       <div className={styles.root}>
         <ChaosSelector
           onStart={async (params) => {
-            setSkillLevel(params.skill_level);
             await beginChaos(params);
           }}
           onBack={() => navigate("home")}
@@ -161,6 +158,7 @@ export function App() {
   const currentStatus = isStudy ? session!.status : chaosSession!.status;
   const currentFeedback = isStudy ? (session!.feedback ?? null) : (chaosSession!.feedback ?? null);
   const currentDebugMsg = isStudy ? (session!.debugMsg ?? null) : (chaosSession!.debugMsg ?? null);
+  const currentLlmDebugMsg = isStudy ? (session!.llmDebugMsg ?? null) : (chaosSession!.llmDebugMsg ?? null);
   const currentOpponentMoveDebug = isChaos ? (chaosSession!.opponentMoveDebug ?? null) : null;
 
   const isDisabled =
@@ -244,7 +242,7 @@ export function App() {
           )}
 
           {/* Engine timing debug panel */}
-          <DebugPanel debugMsg={currentDebugMsg} opponentMoveDebug={currentOpponentMoveDebug} />
+          <DebugPanel debugMsg={currentDebugMsg} opponentMoveDebug={currentOpponentMoveDebug} llmDebugMsg={currentLlmDebugMsg} />
 
           {/* Feedback panel */}
           <Feedback

@@ -3,12 +3,16 @@ import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.engine.stockfish import StockfishEngine
 from app.routers import analysis, chaos, openings, review, session
 from app.services.chaos import stop_all_maia_engines
+from app.services.llm import init_provider
 from app.services.sessions import set_analysis_engine, set_engine
 
 _engine: StockfishEngine | None = None
@@ -28,6 +32,7 @@ def _find_stockfish() -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _engine, _analysis_engine
+    init_provider()
     path = _find_stockfish()
     if path:
         _engine = StockfishEngine(path=path)

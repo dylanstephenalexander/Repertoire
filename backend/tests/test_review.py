@@ -135,7 +135,7 @@ def test_explain_blunder():
 
 def test_analyse_game_returns_correct_structure():
     engine = MockReviewEngine(pre_cp=30, post_cp=-30)
-    result = review_svc.analyse_game(ONE_MOVE_PGN, "intermediate", engine)
+    result = review_svc.analyse_game(ONE_MOVE_PGN, engine)
     assert result.white == "Alice"
     assert result.black == "Bob"
     assert len(result.moves) == 1
@@ -144,7 +144,7 @@ def test_analyse_game_returns_correct_structure():
 def test_analyse_game_one_move_best():
     # pre=30, post=-30 → cp_loss = max(0, 30 + (-30)) = 0 → "best"
     engine = MockReviewEngine(pre_cp=30, post_cp=-30)
-    result = review_svc.analyse_game(ONE_MOVE_PGN, "intermediate", engine)
+    result = review_svc.analyse_game(ONE_MOVE_PGN, engine)
     move = result.moves[0]
     assert move.quality == "best"
     assert move.cp_loss is None
@@ -156,7 +156,7 @@ def test_analyse_game_one_move_best():
 def test_analyse_game_one_move_mistake():
     # pre=30, post=70 → cp_loss = max(0, 30 + 70) = 100 → "mistake"
     engine = MockReviewEngine(pre_cp=30, post_cp=70)
-    result = review_svc.analyse_game(ONE_MOVE_PGN, "intermediate", engine)
+    result = review_svc.analyse_game(ONE_MOVE_PGN, engine)
     move = result.moves[0]
     assert move.quality == "mistake"
     assert move.cp_loss == 100
@@ -166,20 +166,20 @@ def test_analyse_game_one_move_mistake():
 def test_analyse_game_eval_cp_white_perspective():
     # After white's move: post_cp=-30 (from black's perspective) → white's eval = -(-30) = 30
     engine = MockReviewEngine(pre_cp=30, post_cp=-30)
-    result = review_svc.analyse_game(ONE_MOVE_PGN, "intermediate", engine)
+    result = review_svc.analyse_game(ONE_MOVE_PGN, engine)
     assert result.moves[0].eval_cp == 30  # white is +30
 
 
 def test_analyse_game_full_game_move_count():
     engine = MockReviewEngine()
-    result = review_svc.analyse_game(SCHOLARS_MATE_PGN, "intermediate", engine)
+    result = review_svc.analyse_game(SCHOLARS_MATE_PGN, engine)
     # Scholar's mate: 1.e4 e5 2.Qh5 Nc6 3.Bc4 Nf6 4.Qxf7# = 7 moves total
     assert len(result.moves) == 7
 
 
 def test_analyse_game_alternates_colors():
     engine = MockReviewEngine()
-    result = review_svc.analyse_game(SCHOLARS_MATE_PGN, "intermediate", engine)
+    result = review_svc.analyse_game(SCHOLARS_MATE_PGN, engine)
     colors = [m.color for m in result.moves]
     assert colors[0] == "white"
     assert colors[1] == "black"
@@ -196,7 +196,7 @@ def test_analyse_game_multipv_1_used():
             return super().analyse(fen, moves, multipv, depth)
 
     engine = TrackingEngine()
-    review_svc.analyse_game(ONE_MOVE_PGN, "intermediate", engine)
+    review_svc.analyse_game(ONE_MOVE_PGN, engine)
     assert all(m == 1 for m in recorded), f"Expected all multipv=1, got {recorded}"
 
 
@@ -204,12 +204,12 @@ def test_analyse_game_invalid_pgn():
     engine = MockReviewEngine()
     # Empty string causes read_game to return None
     with pytest.raises(ValueError, match="Could not parse PGN"):
-        review_svc.analyse_game("", "intermediate", engine)
+        review_svc.analyse_game("", engine)
 
 
 def test_analyse_game_fen_before_is_position_before_move():
     engine = MockReviewEngine()
-    result = review_svc.analyse_game(ONE_MOVE_PGN, "intermediate", engine)
+    result = review_svc.analyse_game(ONE_MOVE_PGN, engine)
     # First move is from starting position
     import chess
     assert result.moves[0].fen_before == chess.Board().fen()

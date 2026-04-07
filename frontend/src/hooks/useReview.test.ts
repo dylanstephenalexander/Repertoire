@@ -114,7 +114,7 @@ describe("analyse", () => {
 
     const { result } = renderHook(() => useReview());
     await act(async () => {
-      await result.current.analyse("[Event \"Test\"]\n1. e4 *", "intermediate");
+      await result.current.analyse("[Event \"Test\"]\n1. e4 *");
     });
 
     expect(result.current.state.phase).toBe("reviewing");
@@ -131,7 +131,7 @@ describe("analyse", () => {
       await result.current.loadGames({ username: "alice", source: "lichess" });
     });
     await act(async () => {
-      await result.current.analyse("pgn", "intermediate");
+      await result.current.analyse("pgn");
     });
 
     expect(result.current.state.phase).toBe("selecting");
@@ -148,7 +148,7 @@ describe("navigation", () => {
     vi.mocked(reviewApi.analyseGame).mockResolvedValue(MOCK_REVIEW);
     const hook = renderHook(() => useReview());
     await act(async () => {
-      await hook.result.current.analyse("pgn", "intermediate");
+      await hook.result.current.analyse("pgn");
     });
     return hook;
   }
@@ -214,7 +214,7 @@ describe("reset", () => {
 
     const { result } = renderHook(() => useReview());
     await act(async () => {
-      await result.current.analyse("pgn", "intermediate");
+      await result.current.analyse("pgn");
     });
     act(() => result.current.reset());
 

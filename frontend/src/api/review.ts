@@ -17,9 +17,9 @@ export function fetchGames(params: FetchGamesParams): Promise<GameSummary[]> {
   return apiFetch<GameSummary[]>(`/review/games?${query}`);
 }
 
-export function analyseGame(pgn: string, skillLevel: string): Promise<ReviewResponse> {
+export function analyseGame(pgn: string): Promise<ReviewResponse> {
   return apiFetch<ReviewResponse>("/review/analyse", {
     method: "POST",
-    body: JSON.stringify({ pgn, skill_level: skillLevel }),
+    body: JSON.stringify({ pgn }),
   });
 }

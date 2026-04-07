@@ -28,9 +28,9 @@ def start_session(body: SessionStartRequest) -> SessionStartResponse:
 
 
 @router.post("/{session_id}/move", response_model=MoveResult)
-def make_move(session_id: str, body: MoveRequest) -> MoveResult:
+async def make_move(session_id: str, body: MoveRequest) -> MoveResult:
     try:
-        return session_svc.process_move(session_id, body.uci_move)
+        return await session_svc.process_move(session_id, body.uci_move)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except ValueError as exc:
