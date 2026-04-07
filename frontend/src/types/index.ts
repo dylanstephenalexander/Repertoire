@@ -24,6 +24,13 @@ export interface Feedback {
   llm_explanation?: boolean;
 }
 
+export interface PositionEntry {
+  fen: string;
+  san: string | null;       // null for starting position
+  feedback: Feedback | null; // null for opponent moves and starting position
+  evalCp: number | null;    // stored when useEval resolves; null until then
+}
+
 export interface SessionStartResponse {
   session_id: string;
   fen: string;

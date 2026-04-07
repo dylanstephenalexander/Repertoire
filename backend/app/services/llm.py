@@ -51,7 +51,7 @@ async def get_explanation(
     best_san: str,
     cp_loss: int,
     quality: str,
-    opponent_response_san: str | None = None,
+    tactical_facts: list[str],
 ) -> tuple[str | None, str]:
     """
     Returns (explanation, llm_debug).
@@ -61,15 +61,14 @@ async def get_explanation(
     if _provider is None:
         return None, "LLM: fallback (no provider configured)"
     quality_word = "blunder" if quality == "blunder" else "mistake"
-    opponent_fact = f"- Opponent's best response: {opponent_response_san}\n" if opponent_response_san else ""
+    facts_block = ("\nKnown facts:\n" + "\n".join(f"- {f}" for f in tactical_facts)) if tactical_facts else ""
     prompt = (
         f"Chess position (FEN: {pre_move_fen}).\n"
-        f"Facts:\n"
-        f"- Played: {played_san} (a {quality_word}, -{cp_loss}cp)\n"
-        f"- Best move: {best_san}\n"
-        f"{opponent_fact}"
-        f"\nIn one short casual sentence, explain why {played_san} was a {quality_word}.\n"
-        f"Use ONLY the facts above. Do not invent moves, squares, or tactics."
+        f"The player played {played_san} instead of {best_san}, losing {cp_loss} centipawns (a {quality_word}).\n"
+        f"{facts_block}\n"
+        f"\n"
+        f"In one short, casual sentence, explain specifically why {played_san} was a {quality_word}.\n"
+        f"Name the pieces and squares involved. Do not just say it wasn't the best move."
     )
     try:
         logger.info("Gemini called. Prompt: %s", prompt)

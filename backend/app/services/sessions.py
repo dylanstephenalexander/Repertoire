@@ -75,9 +75,9 @@ def clear_sessions() -> None:
     _pending_explanations.clear()
 
 
-async def _store_explanation(session_id: str, pre_fen: str, played_san: str, best_san: str, cp_loss: int, quality: str, opponent_san: str | None) -> None:
+async def _store_explanation(session_id: str, pre_fen: str, played_san: str, best_san: str, cp_loss: int, quality: str, tactical_facts: list[str]) -> None:
     """Background task: fetch LLM explanation and store it for polling."""
-    explanation, llm_debug = await get_explanation(pre_fen, played_san, best_san, cp_loss, quality, opponent_san)
+    explanation, llm_debug = await get_explanation(pre_fen, played_san, best_san, cp_loss, quality, tactical_facts)
     if explanation:
         _pending_explanations[session_id] = (explanation, llm_debug)
 
@@ -347,13 +347,6 @@ async def process_move(session_id: str, uci_move: str) -> MoveResult:
     cp_loss, raw_lines, best_move_uci, debug_msg, opponent_uci = await asyncio.to_thread(
         evaluate_off_tree_eval, session_id, pre_fen, new_fen, uci_move, session.elo
     )
-    opponent_san: str | None = None
-    if opponent_uci:
-        try:
-            opponent_san = chess.Board(new_fen).san(chess.Move.from_uci(opponent_uci))
-        except Exception:
-            pass
-
     pre_board = chess.Board(pre_fen)
     lines = _to_analysis_lines(raw_lines, pre_board)
     best_san = lines[0].move_san if lines else (best_move_uci or uci_move)
@@ -373,8 +366,11 @@ async def process_move(session_id: str, uci_move: str) -> MoveResult:
         quality = quality_from_cp_loss(cp_loss)
         feedback = build_mistake_feedback(played_san, best_san, cp_loss, lines=lines)
         result = feedback.quality
+        # Derive concrete facts for LLM (python-chess, no inference needed from the model)
+        post_board = chess.Board(new_fen)
+        tactical_facts = _derive_tactical_facts(pre_board, post_board, move, opponent_uci, played_san, best_san)
         # Fire LLM in background — client polls /session/{id}/explanation
-        asyncio.create_task(_store_explanation(session_id, pre_fen, played_san, best_san, cp_loss, quality, opponent_san))
+        asyncio.create_task(_store_explanation(session_id, pre_fen, played_san, best_san, cp_loss, quality, tactical_facts))
 
     _update_session(session, uci_move, new_fen, {})
     return MoveResult(result=result, feedback=feedback, fen=new_fen, debug_msg=debug_msg)
@@ -447,6 +443,46 @@ def get_opponent_move(session_id: str) -> OpponentMoveResponse:
     submit_pre_eval(session_id, new_fen, session.elo)
 
     return OpponentMoveResponse(uci_move=uci_move, fen=new_fen, line_complete=not next_cursor)
+
+
+def _derive_tactical_facts(
+    pre_board: chess.Board,
+    post_board: chess.Board,
+    move: chess.Move,
+    opponent_uci: str | None,
+    played_san: str,
+    best_san: str,
+) -> list[str]:
+    """Derive verifiable facts about the position using python-chess. No inference."""
+    facts = []
+    mover_color = pre_board.turn
+    opponent_color = not mover_color
+
+    piece_moved = pre_board.piece_at(move.from_square)
+    if piece_moved:
+        piece_name = chess.piece_name(piece_moved.piece_type)
+        sq = chess.square_name(move.to_square)
+        is_attacked = post_board.is_attacked_by(opponent_color, move.to_square)
+        is_defended = post_board.is_attacked_by(mover_color, move.to_square)
+        if is_attacked and not is_defended:
+            facts.append(f"The {piece_name} moved to {sq} is undefended — opponent can capture it for free")
+        elif is_attacked:
+            facts.append(f"The {piece_name} moved to {sq} is under attack")
+
+    if opponent_uci:
+        try:
+            opp_move = chess.Move.from_uci(opponent_uci)
+            captured = post_board.piece_at(opp_move.to_square)
+            opp_san = post_board.san(opp_move)
+            if captured:
+                captured_name = chess.piece_name(captured.piece_type)
+                facts.append(f"Opponent's best reply is {opp_san}, winning the {captured_name}")
+            else:
+                facts.append(f"Opponent's best reply is {opp_san}")
+        except Exception:
+            pass
+
+    return facts
 
 
 def _to_analysis_lines(

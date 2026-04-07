@@ -7,6 +7,7 @@ import { DebugPanel } from "./components/DebugPanel/DebugPanel";
 import { Feedback } from "./components/Feedback/Feedback";
 import { GameReview } from "./components/GameReview/GameReview";
 import { OpeningSelector } from "./components/OpeningSelector/OpeningSelector";
+import { SessionMoveList } from "./components/SessionMoveList/SessionMoveList";
 import { useChaos } from "./hooks/useChaos";
 import { useEval } from "./hooks/useEval";
 import { useSession } from "./hooks/useSession";
@@ -16,7 +17,18 @@ import styles from "./App.module.css";
 type AppMode = "home" | "study" | "chaos" | "review";
 
 export function App() {
-  const { session, begin, move, retry, continuePlay, restart, requestHint, clearSession } = useSession();
+  const {
+    session,
+    begin,
+    move,
+    retry,
+    continuePlay,
+    restart,
+    requestHint,
+    clearSession,
+    goToIndex,
+    updatePositionEval,
+  } = useSession();
   const {
     chaosSession,
     engineStatus,
@@ -27,24 +39,22 @@ export function App() {
     resign,
     clearChaosSession,
     restartChaos,
+    goToChaosIndex,
+    updateChaosPositionEval,
   } = useChaos();
 
   const [mode, setMode] = useState<AppMode>(() => {
-    // Restore mode from history state on hard reload, default to home
     return (history.state?.mode as AppMode) ?? "home";
   });
 
-  // Push a history entry whenever mode changes so the browser back button works
   function navigate(next: AppMode) {
     history.pushState({ mode: next }, "");
     setMode(next);
   }
 
-  // Listen for browser back/forward
   useEffect(() => {
     function onPop(e: PopStateEvent) {
       const prev = (e.state?.mode as AppMode) ?? "home";
-      // If navigating back from an active game, clear it
       if (prev === "home" || prev === "study" || prev === "chaos") {
         clearSession();
         clearChaosSession();
@@ -55,27 +65,67 @@ export function App() {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [clearSession, clearChaosSession]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [guided, setGuided] = useState(false);
   const notationMode: NotationMode = "readable";
 
-  // Fetch engine status once so ChaosSelector can show what's available
   useEffect(() => {
     checkEngineStatus();
   }, [checkEngineStatus]);
 
-  // Active FEN: use whichever session is live
-  const activeFen = session?.fen ?? chaosSession?.fen ?? null;
-  const activeColor = session?.userColor ?? chaosSession?.userColor ?? "white";
+  const isStudy = mode === "study" && !!session;
+  const isChaos = mode === "chaos" && !!chaosSession;
 
-  // eval_cp from backend is side-to-move perspective; convert to white POV
-  const { evalCp: rawEvalCp } = useEval(activeFen);
+  // ── Review mode (history navigation) ────────────────────────────────────
+  const studyReviewing = isStudy && session.viewIndex !== null;
+  const chaosReviewing = isChaos && chaosSession.viewIndex !== null;
+  const isReviewing = studyReviewing || chaosReviewing;
+
+  // The FEN shown on the board — historical when reviewing, live otherwise
+  const displayFen = (() => {
+    if (studyReviewing) return session.positions[session.viewIndex!].fen;
+    if (chaosReviewing) return chaosSession.positions[chaosSession.viewIndex!].fen;
+    if (isStudy) return session.fen;
+    if (isChaos) return chaosSession.fen;
+    return null;
+  })();
+
+  // Feedback shown — historical when reviewing, live otherwise
+  const displayFeedback = (() => {
+    if (studyReviewing) return session.positions[session.viewIndex!].feedback;
+    if (chaosReviewing) return chaosSession.positions[chaosSession.viewIndex!].feedback;
+    if (isStudy) return session.feedback;
+    if (isChaos) return chaosSession.feedback;
+    return null;
+  })();
+
+  // ── Eval bar ─────────────────────────────────────────────────────────────
+  // Use stored eval when available to avoid re-fetching during navigation
+  const storedEval = (() => {
+    if (studyReviewing) return session.positions[session.viewIndex!].evalCp;
+    if (chaosReviewing) return chaosSession.positions[chaosSession.viewIndex!].evalCp;
+    return null;
+  })();
+
+  // Only hit the engine when we don't have a stored value
+  const evalFen = storedEval !== null ? null : displayFen;
+  const { evalCp: fetchedEvalCp } = useEval(evalFen);
+  const rawEvalCp = storedEval ?? fetchedEvalCp;
+
+  // Store freshly-fetched evals back into positions so navigation is instant
+  useEffect(() => {
+    if (fetchedEvalCp === null || evalFen === null) return;
+    if (isStudy) updatePositionEval(evalFen, fetchedEvalCp);
+    else if (isChaos) updateChaosPositionEval(evalFen, fetchedEvalCp);
+  }, [fetchedEvalCp, evalFen]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const whitePovCp = (() => {
-    if (rawEvalCp === null || !activeFen) return null;
-    const toMove = activeFen.split(" ")[1];
+    if (rawEvalCp === null || !displayFen) return null;
+    const toMove = displayFen.split(" ")[1];
     return toMove === "b" ? -rawEvalCp : rawEvalCp;
   })();
 
-  // Study: guided auto-hint
+  // ── Study guided auto-hint ───────────────────────────────────────────────
   useEffect(() => {
     if (!guided || !session || session.status !== "playing" || session.hint) return;
     const toMove = session.fen.split(" ")[1];
@@ -84,9 +134,21 @@ export function App() {
     requestHint();
   }, [session?.fen, guided]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleRestart() {
-    await restart();
-  }
+  // ── Derived display values ───────────────────────────────────────────────
+  const currentColor = isStudy ? session!.userColor : isChaos ? chaosSession!.userColor : "white";
+  const currentStatus = isStudy ? session!.status : isChaos ? chaosSession!.status : "idle";
+  const currentDebugMsg = isStudy ? (session!.debugMsg ?? null) : isChaos ? (chaosSession!.debugMsg ?? null) : null;
+  const currentLlmDebugMsg = isStudy ? (session!.llmDebugMsg ?? null) : isChaos ? (chaosSession!.llmDebugMsg ?? null) : null;
+  const currentOpponentMoveDebug = isChaos ? (chaosSession!.opponentMoveDebug ?? null) : null;
+  const currentExplanationPending = isStudy
+    ? session!.explanationPending
+    : isChaos ? chaosSession!.explanationPending : false;
+
+  const isDisabled =
+    currentStatus === "opponent_thinking" ||
+    currentStatus === "awaiting_decision" ||
+    currentStatus === "complete" ||
+    isReviewing;
 
   // ── Review mode ──────────────────────────────────────────────────────────
   if (mode === "review") {
@@ -124,9 +186,7 @@ export function App() {
     return (
       <div className={styles.root}>
         <OpeningSelector
-          onStart={async (params) => {
-            await begin(params);
-          }}
+          onStart={async (params) => { await begin(params); }}
           onBack={() => navigate("home")}
         />
       </div>
@@ -138,9 +198,7 @@ export function App() {
     return (
       <div className={styles.root}>
         <ChaosSelector
-          onStart={async (params) => {
-            await beginChaos(params);
-          }}
+          onStart={async (params) => { await beginChaos(params); }}
           onBack={() => navigate("home")}
           lc0Available={engineStatus?.lc0 ?? false}
           availableModels={engineStatus?.maiaModels ?? []}
@@ -150,22 +208,7 @@ export function App() {
   }
 
   // ── Active game (study or chaos) ──────────────────────────────────────────
-  const isStudy = mode === "study" && !!session;
-  const isChaos = mode === "chaos" && !!chaosSession;
-
   const currentFen = isStudy ? session!.fen : chaosSession!.fen;
-  const currentColor = isStudy ? session!.userColor : chaosSession!.userColor;
-  const currentStatus = isStudy ? session!.status : chaosSession!.status;
-  const currentFeedback = isStudy ? (session!.feedback ?? null) : (chaosSession!.feedback ?? null);
-  const currentDebugMsg = isStudy ? (session!.debugMsg ?? null) : (chaosSession!.debugMsg ?? null);
-  const currentLlmDebugMsg = isStudy ? (session!.llmDebugMsg ?? null) : (chaosSession!.llmDebugMsg ?? null);
-  const currentOpponentMoveDebug = isChaos ? (chaosSession!.opponentMoveDebug ?? null) : null;
-  const currentExplanationPending = isStudy ? session!.explanationPending : chaosSession!.explanationPending;
-
-  const isDisabled =
-    currentStatus === "opponent_thinking" ||
-    currentStatus === "awaiting_decision" ||
-    currentStatus === "complete";
 
   return (
     <div className={styles.root}>
@@ -176,11 +219,11 @@ export function App() {
 
         <main className={styles.boardWrapper}>
           <Board
-            fen={currentFen}
+            fen={displayFen ?? currentFen}
             orientation={currentColor}
             onMove={isStudy ? move : chaosMove}
             disabled={isDisabled}
-            hintMove={isStudy ? (session!.hint?.uci || undefined) : undefined}
+            hintMove={isStudy && !isReviewing ? (session!.hint?.uci || undefined) : undefined}
           />
         </main>
 
@@ -206,8 +249,24 @@ export function App() {
             </button>
           )}
 
-          {/* Hint controls — study only */}
-          {isStudy && currentStatus === "playing" && (
+          {/* Move history */}
+          {isStudy && (
+            <SessionMoveList
+              positions={session!.positions}
+              viewIndex={session!.viewIndex}
+              onSelect={goToIndex}
+            />
+          )}
+          {isChaos && (
+            <SessionMoveList
+              positions={chaosSession!.positions}
+              viewIndex={chaosSession!.viewIndex}
+              onSelect={goToChaosIndex}
+            />
+          )}
+
+          {/* Hint controls — study only, not while reviewing */}
+          {isStudy && currentStatus === "playing" && !isReviewing && (
             <div className={styles.hintArea}>
               {guided ? (
                 <>
@@ -243,21 +302,41 @@ export function App() {
           )}
 
           {/* Engine timing debug panel */}
-          <DebugPanel debugMsg={currentDebugMsg} opponentMoveDebug={currentOpponentMoveDebug} llmDebugMsg={currentLlmDebugMsg} />
-
-          {/* Feedback panel */}
-          <Feedback
-            feedback={currentFeedback}
-            awaitingDecision={currentStatus === "awaiting_decision"}
-            notationMode={notationMode}
-            explanationPending={currentExplanationPending}
-            onRetry={retry}
-            onContinue={continuePlay}
-            onRestart={handleRestart}
+          <DebugPanel
+            debugMsg={currentDebugMsg}
+            opponentMoveDebug={currentOpponentMoveDebug}
+            llmDebugMsg={currentLlmDebugMsg}
           />
 
+          {/* Feedback panel — live or historical */}
+          {!isReviewing && (
+            <Feedback
+              feedback={displayFeedback}
+              awaitingDecision={currentStatus === "awaiting_decision"}
+              notationMode={notationMode}
+              explanationPending={currentExplanationPending}
+              onRetry={retry}
+              onContinue={continuePlay}
+              onRestart={async () => {
+                if (isStudy) await restart();
+                else await restartChaos();
+              }}
+            />
+          )}
+          {isReviewing && displayFeedback && (
+            <Feedback
+              feedback={displayFeedback}
+              awaitingDecision={false}
+              notationMode={notationMode}
+              explanationPending={false}
+              onRetry={async () => {}}
+              onContinue={async () => {}}
+              onRestart={async () => {}}
+            />
+          )}
+
           {/* End-of-game actions */}
-          {currentStatus === "complete" && (
+          {currentStatus === "complete" && !isReviewing && (
             <div className={styles.completeActions}>
               <div className={styles.gameOverMsg}>
                 {(() => {
@@ -274,14 +353,14 @@ export function App() {
                 })()}
               </div>
               <button className={styles.primaryBtn} onClick={async () => {
-                if (isStudy) await handleRestart();
+                if (isStudy) await restart();
                 else await restartChaos();
               }}>
                 Play again
               </button>
               <button className={styles.secondaryBtn} onClick={() => {
-                if (isStudy) { clearSession(); }
-                else { clearChaosSession(); }
+                if (isStudy) clearSession();
+                else clearChaosSession();
                 setGuided(false);
               }}>
                 New game
@@ -298,7 +377,7 @@ export function App() {
           )}
 
           {/* Resign — chaos only, while playing */}
-          {isChaos && currentStatus === "playing" && (
+          {isChaos && currentStatus === "playing" && !isReviewing && (
             <button className={styles.resignBtn} onClick={resign}>
               Resign
             </button>

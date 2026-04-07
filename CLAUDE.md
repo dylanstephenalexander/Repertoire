@@ -66,24 +66,15 @@ Explanations must match the user's skill level.
 
 ## Next to Implement
 
-**Pre-Analysis Engine Optimisation (feedback latency)**
+**QoL Pass**
 
-Currently `process_move` runs two serial Stockfish calls for off-tree moves: `pre_eval` (top-N lines from the position before the user moves) then `post_eval` (eval of the position after). Both block the response. Applies to Study Mode, Chaos Mode, and Maia play.
+1. **Board UX — Drag Precision**: `react-chessboard` drag sensitivity is too tight — requires pixel-perfect placement, causing pieces to snap back if dropped slightly off-square. Also, rapid moves when it's the user's turn can fail silently (move rejected, piece snaps back with no feedback). Investigate `react-chessboard` drop tolerance options; add a visible "illegal move" flash or shake animation so the user knows why a move was rejected rather than wondering if it registered.
 
-**Core insight:** `pre_eval` with multipv=N already contains the cp value for any move the user plays that falls within the top N. `cp_loss = pre_cp - user_move_cp` (both from the same perspective — no second engine call needed). `post_eval` is only required when the user plays a move outside the top N (a genuine blunder Stockfish didn't rank).
+2. **Sound Effects**: Add sound effects for moves. Use the standard chess sound set (move, capture, check, castle, game-end). Differentiate by move type — detect from the move result or SAN. Keep a global mute toggle.
 
-**Design:**
-- Add a second `StockfishEngine` instance (`_analysis_engine`) at startup alongside the existing `_engine` (used for opponent moves).
-- After `opponent_move` resolves, immediately start background pre_eval on `_analysis_engine` at higher multipv (start with 10; tune empirically — higher covers more user moves but slows the search). Store result + the FEN it was computed for on the session.
-- On `process_move` (off-tree path):
-  1. If cached pre_eval exists and FEN matches and user's move is in the lines → use cached cp, skip all engine calls.
-  2. If cached pre_eval exists but user's move is not in lines → fire post_eval on `_engine` (the main engine), wait for it only.
-  3. If pre_eval not yet done → fire post_eval on `_engine` in parallel, await both.
-- Clear the cache on every `process_move` regardless of outcome.
-- Best case (user took time to think, played a top-N move): zero engine calls at response time.
-- Worst case (user moved instantly or played a deep blunder): max(remaining pre_eval, post_eval) — never worse than current serial behaviour.
+3. **View Previous Moves**: Should be able to iterate through previous moves within a game. Back to Start, Back to Current, Back One Move, Forward One Move. View-only — cannot replay from that position. Moves should be stored alongside their eval/feedback so Stockfish does not need to recalculate.
 
-**Open question at implementation time:** benchmark multipv values (5 / 10 / 15 / 20) against analysis speed in opening positions to pick the default.
+4. **Captured Pieces Display**: Show pieces taken by each side, sorted by value. Standard chess UI convention. Derives entirely from move history (no engine call needed) — compute from `move_history` using python-chess on the backend or chess.js on the frontend.
 
 ## Post-MVP Ideas
 - **Game Review**: fetch past games from chess.com public API (`api.chess.com/pub/player/{username}/games/{year}/{month}`, no auth needed for public games), run move-by-move through local Stockfish, annotate blunders/mistakes/inaccuracies with "better was X" suggestions. Bypasses chess.com's depth-limited premium review using the user's own engine. Infrastructure (Stockfish, board rendering) is already in place — the work is the annotation UI.
@@ -93,11 +84,11 @@ Currently `process_move` runs two serial Stockfish calls for off-tree moves: `pr
 - **Desktop App (Electron/Tauri)**: bundle as a native desktop app so Stockfish, lc0, and Maia weights ship inside the package — no user install steps. Two viable options: **Electron** (Chromium + Node, larger bundle ~150MB but mature, easiest FastAPI sidecar story), **Tauri** (Rust shell + system WebView, ~10MB, faster startup, slightly more work for Python sidecar). FastAPI runs as a child process spawned by the shell on app launch; stdout/stderr piped for crash recovery. Stockfish + lc0 binaries go in `resources/` and are extracted to app data dir on first launch. Auto-update via Electron's built-in updater or Tauri updater plugin. Key remaining work: code-sign (macOS notarization required for Gatekeeper), platform-specific binary bundles (macOS arm64/x86_64 universal, Windows x64, Linux AppImage), Python bundling via PyInstaller or cx_Freeze to produce a single FastAPI executable (removes Python runtime dependency — preferred for distribution).
 - **Settings Panel**: eval bar toggle, feedback toggle, skill level selector — currently scattered. Consolidate into a `Settings/` slide-in panel (gear icon in sidebar). Designed for extensibility: each setting is a row, easy to add new ones. **Notation mode** (AN / English / Both) is currently hardcoded to "readable" (`App.tsx` — `const notationMode: NotationMode = "readable"`); the `translateExplanation` utility and `NotationMode` type are fully implemented, just needs a settings toggle to expose it.
 - **Sub-1100 Opponents**: Maia's floor is 1100. For lower Elos: (1) clamp to Maia-1100 with a UI note, (2) Stockfish `UCI_LimitStrength` (unrealistic, misses tactics randomly not human-like), (3) community Maia-extending weights covering 800–1000 when available. Revisit when bundling for distribution.
-- **Sound Effects**: Add sound effects for moves. Experiment with differentiating sounds for castling, checkmate, check, etc.
-- **View Previous Moves**: Should be able to iterate through previous moves within a game. Back to Start, Back to Current, Back One Move, Up One Move. Cannot replay the gamestate from this point, but can view moves. -> Should moves be stored along with the eval? So that stockfish doesnt need to recalculate?
-- **Board UX — Drag Precision**: `react-chessboard` drag sensitivity is too tight — requires pixel-perfect placement, causing pieces to snap back if dropped slightly off-square. Also, rapid moves when it's the user's turn can fail silently (move rejected, piece snaps back with no feedback). Investigate `react-chessboard` drop tolerance options; add a visible "illegal move" flash or shake animation so the user knows why a move was rejected rather than wondering if it registered.
-- **LLM Explanation Latency**: Gemini is called synchronously inside `process_move`, blocking the entire move response for 5–10s on the free tier. Fix: return `process_move` immediately with the template explanation, fire the LLM as a background `asyncio.create_task`, store the result in a `_pending_explanations` dict keyed by session. Add `GET /session/{id}/explanation` — returns LLM text when ready or `null` if still pending. Frontend polls once after receiving the move response (with a timeout), updates the feedback panel when the explanation arrives. Board re-enables immediately; explanation fades in when ready.
-- **Improve LLM Prompt**: prompt needs to be improved. right now it's doing far too much guesswork. generate taglines to feed it, to remove inference work, and just have it act as a translator.
+- **Deterministic Move Explanations**: LLM hallucinations make Gemini unreliable as the primary explanation source. Better approach: derive verifiable facts from python-chess (`_derive_tactical_facts` in `sessions.py` is already the skeleton — detects hanging pieces and opponent captures), format them directly into the explanation string. Cases to cover: (1) moved piece now hanging — done; (2) opponent's best reply captures a piece — done; (3) piece the moved piece was defending is now undefended (discovered weakness — `board.attackers()` before vs after); (4) moved piece is pinned against the king. Anything not matched falls back to a clean template. LLM stays as optional polish layer but should not be the primary path.
+- **LLM Move Explanations**: Gemini is wired up (`backend/app/services/llm.py`). Currently unreliable — tends to produce vague or generic sentences even with FEN + tactical facts grounding. Kept around in case a better use is found (e.g. opening name trivia, study tips). Not the primary explanation path.
+- **Sound Effects**: moved to Next to Implement.
+- **View Previous Moves**: moved to Next to Implement.
+- **Board UX — Drag Precision**: moved to Next to Implement.
 
 ## Architecture
 

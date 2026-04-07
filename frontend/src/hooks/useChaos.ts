@@ -8,7 +8,7 @@ import {
   startChaos,
 } from "../api/chaos";
 import type { ChaosStartParams } from "../api/chaos";
-import type { Feedback } from "../types";
+import type { Feedback, PositionEntry } from "../types";
 
 async function pollChaosExplanation(
   sessionId: string,
@@ -66,6 +66,8 @@ interface ChaosState {
   inTheory: boolean;
   eloBand: number;
   feedbackEnabled: boolean;
+  positions: PositionEntry[];
+  viewIndex: number | null;
 }
 
 interface EngineStatus {
@@ -83,6 +85,8 @@ interface UseChaosReturn {
   resign: () => void;
   clearChaosSession: () => void;
   restartChaos: () => Promise<void>;
+  goToChaosIndex: (i: number | null) => void;
+  updateChaosPositionEval: (fen: string, cp: number) => void;
 }
 
 const MIN_THINKING_MS = 500;
@@ -115,13 +119,26 @@ export function useChaos(): UseChaosReturn {
       if (resp) {
         setChaosSession((s) => {
           if (!s) return s;
+          let opponentSan: string = resp.uci_move;
+          try {
+            const chess = new Chess(s.fen);
+            const result = chess.move({
+              from: resp.uci_move.slice(0, 2),
+              to: resp.uci_move.slice(2, 4),
+              promotion: resp.uci_move.length > 4 ? resp.uci_move[4] : undefined,
+            });
+            opponentSan = result?.san ?? resp.uci_move;
+          } catch { /* fall back to UCI */ }
+
           const mate = checkmateFeedback(resp.fen, s.userColor);
           const opponentMoveDebug = resp.opponent_move_time != null
             ? `Opponent move (${resp.opponent_engine ?? "engine"}): ${resp.opponent_move_time.toFixed(2)}s`
             : null;
+          const newPosition: PositionEntry = { fen: resp.fen, san: opponentSan, feedback: null, evalCp: null };
           return {
             ...s,
             fen: resp.fen,
+            positions: [...s.positions, newPosition],
             status: mate ? "complete" : "playing",
             feedback: mate ?? s.feedback,
             opponentMoveDebug,
@@ -154,6 +171,8 @@ export function useChaos(): UseChaosReturn {
         inTheory: false,
         eloBand: params.elo_band,
         feedbackEnabled: true,
+        positions: [{ fen: resp.fen, san: null, feedback: null, evalCp: null }],
+        viewIndex: null,
       };
       setChaosSession(initial);
 
@@ -168,13 +187,16 @@ export function useChaos(): UseChaosReturn {
     async (uciMove: string) => {
       if (!chaosSession || chaosSession.status !== "playing") return;
 
+      const userMovePositionIdx = chaosSession.positions.length;
+
       // Optimistic update
       const chess = new Chess(chaosSession.fen);
-      chess.move({
+      const moveResult = chess.move({
         from: uciMove.slice(0, 2),
         to: uciMove.slice(2, 4),
         promotion: uciMove.length === 5 ? uciMove[4] : undefined,
       });
+      const playedSan = moveResult?.san ?? uciMove;
       const optimisticFen = chess.fen();
       setChaosSession((s) => (s ? { ...s, fen: optimisticFen, feedback: null } : s));
 
@@ -189,6 +211,13 @@ export function useChaos(): UseChaosReturn {
       const mate = checkmateFeedback(resp.fen, userColor);
       const quality = resp.feedback?.quality;
       const isMistakeOrBlunder = quality === "mistake" || quality === "blunder";
+      const newPosition: PositionEntry = {
+        fen: resp.fen,
+        san: playedSan,
+        feedback: resp.feedback ?? null,
+        evalCp: null,
+      };
+
       setChaosSession((s) => {
         if (!s) return s;
         return {
@@ -200,11 +229,12 @@ export function useChaos(): UseChaosReturn {
           explanationPending: !mate && isMistakeOrBlunder,
           openingName: resp.opening_name ?? s.openingName,
           inTheory: resp.in_theory,
+          positions: [...s.positions, newPosition],
+          viewIndex: null,
           ...(mate ? { status: "complete" as const } : {}),
         };
       });
 
-      // Only trigger opponent move if user didn't just deliver checkmate
       const postMoveBoard = new Chess(resp.fen);
       if (!postMoveBoard.isCheckmate()) {
         await triggerOpponentMove(capturedSessionId);
@@ -216,6 +246,11 @@ export function useChaos(): UseChaosReturn {
           (explanation, llmDebug) => {
             setChaosSession((s) => {
               if (!s || s.sessionId !== capturedSessionId) return s;
+              const updatedPositions = s.positions.map((p, i) =>
+                i === userMovePositionIdx && p.feedback
+                  ? { ...p, feedback: { ...p.feedback, explanation, llm_explanation: true } }
+                  : p
+              );
               return {
                 ...s,
                 explanationPending: false,
@@ -223,6 +258,7 @@ export function useChaos(): UseChaosReturn {
                 feedback: s.feedback
                   ? { ...s.feedback, explanation, llm_explanation: true }
                   : s.feedback,
+                positions: updatedPositions,
               };
             });
           },
@@ -258,6 +294,24 @@ export function useChaos(): UseChaosReturn {
     await beginChaos(lastParams.current);
   }, [beginChaos]);
 
+  const goToChaosIndex = useCallback((i: number | null) => {
+    setChaosSession((s) => {
+      if (!s) return s;
+      const normalized = i !== null && i >= s.positions.length - 1 ? null : i;
+      return { ...s, viewIndex: normalized };
+    });
+  }, []);
+
+  const updateChaosPositionEval = useCallback((fen: string, cp: number) => {
+    setChaosSession((s) => {
+      if (!s) return s;
+      const positions = s.positions.map((p) =>
+        p.fen === fen && p.evalCp === null ? { ...p, evalCp: cp } : p
+      );
+      return { ...s, positions };
+    });
+  }, []);
+
   return {
     chaosSession,
     engineStatus,
@@ -268,5 +322,7 @@ export function useChaos(): UseChaosReturn {
     resign,
     clearChaosSession,
     restartChaos,
+    goToChaosIndex,
+    updateChaosPositionEval,
   };
 }

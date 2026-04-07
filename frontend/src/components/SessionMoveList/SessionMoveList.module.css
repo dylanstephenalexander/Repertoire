@@ -1,0 +1,108 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+/* ── Navigation bar ─────────────────────────────────────────────────────── */
+
+.navBar {
+  display: flex;
+  gap: 4px;
+}
+
+.navBtn {
+  flex: 1;
+  padding: 5px 0;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #aaa;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.navBtn:hover:not(:disabled) {
+  border-color: #555;
+  color: #e0e0e0;
+}
+
+.navBtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* ── Scrollable move list ───────────────────────────────────────────────── */
+
+.moveList {
+  overflow-y: auto;
+  max-height: 180px;
+  font-size: 0.82rem;
+  font-family: monospace;
+  background: #161616;
+  border: 1px solid #2a2a2a;
+  border-radius: 5px;
+  padding: 4px 0;
+}
+
+.moveRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+}
+
+.moveNumber {
+  width: 26px;
+  color: #555;
+  text-align: right;
+  flex-shrink: 0;
+  padding-right: 4px;
+  font-size: 0.78rem;
+}
+
+/* ── Move cells ─────────────────────────────────────────────────────────── */
+
+.moveCell {
+  flex: 1;
+  padding: 3px 6px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: #ccc;
+  text-align: left;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 0.82rem;
+  transition: background 0.1s;
+}
+
+.moveCell:hover {
+  background: #252525;
+}
+
+.activeMove {
+  background: #2a5298 !important;
+  color: #fff;
+}
+
+.badge {
+  font-size: 0.65rem;
+  margin-left: 1px;
+}
+
+/* ── Quality tints (match GameReview colours) ───────────────────────────── */
+
+.quality_mistake {
+  color: #e08040;
+}
+
+.quality_blunder {
+  color: #e05050;
+}
+
+.quality_alternative {
+  color: #80c080;
+}

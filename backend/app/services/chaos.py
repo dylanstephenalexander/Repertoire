@@ -21,6 +21,7 @@ from app.services.feedback import (
 from app.services.llm import get_explanation
 from app.services.opening_detect import detect_opening
 from app.services.sessions import (  # shared Stockfish + pre_eval machinery
+    _derive_tactical_facts,
     evaluate_off_tree_eval,
     get_engine,
     submit_pre_eval,
@@ -160,8 +161,8 @@ def get_chaos_opponent_move(session_id: str) -> ChaosOpponentMoveResponse:
 _pending_chaos_explanations: dict[str, tuple[str, str]] = {}
 
 
-async def _store_chaos_explanation(session_id: str, pre_fen: str, played_san: str, best_san: str, cp_loss: int, quality: str, opponent_san: str | None) -> None:
-    explanation, llm_debug = await get_explanation(pre_fen, played_san, best_san, cp_loss, quality, opponent_san)
+async def _store_chaos_explanation(session_id: str, pre_fen: str, played_san: str, best_san: str, cp_loss: int, quality: str, tactical_facts: list[str]) -> None:
+    explanation, llm_debug = await get_explanation(pre_fen, played_san, best_san, cp_loss, quality, tactical_facts)
     if explanation:
         _pending_chaos_explanations[session_id] = (explanation, llm_debug)
 
@@ -223,22 +224,18 @@ async def _build_chaos_feedback(
         )
     except Exception:
         return None, None
-    opponent_san: str | None = None
-    if opponent_uci:
-        try:
-            opponent_san = chess.Board(post_fen).san(chess.Move.from_uci(opponent_uci))
-        except Exception:
-            pass
-
     if cp_loss <= ALTERNATIVE_THRESHOLD_CP:
         return None, debug_msg  # Good move — no feedback needed
 
     pre_board = chess.Board(pre_fen)
+    post_board = chess.Board(post_fen)
+    move = chess.Move.from_uci(uci_move)
     lines = _to_analysis_lines(raw_lines, pre_board)
     best_san = lines[0].move_san if lines else (best_move_uci or uci_move)
 
     quality = quality_from_cp_loss(cp_loss)
-    asyncio.create_task(_store_chaos_explanation(session_id, pre_fen, played_san, best_san, cp_loss, quality, opponent_san))
+    tactical_facts = _derive_tactical_facts(pre_board, post_board, move, opponent_uci, played_san, best_san)
+    asyncio.create_task(_store_chaos_explanation(session_id, pre_fen, played_san, best_san, cp_loss, quality, tactical_facts))
     return build_mistake_feedback(played_san, best_san, cp_loss, lines=lines), debug_msg
 
 
