@@ -29,10 +29,10 @@ def test_eval_invalid_fen_returns_400(real_engine):
 # ---------------------------------------------------------------------------
 
 
-def test_eval_returns_top_3_lines(real_engine):
+def test_eval_returns_one_line(real_engine):
     session_svc.set_engine(real_engine)
     resp = client.post("/analysis/eval", json={"fen": STARTING_FEN})
-    assert len(resp.json()["lines"]) == 3
+    assert len(resp.json()["lines"]) == 1
 
 
 def test_eval_lines_ordered_best_first(real_engine):
