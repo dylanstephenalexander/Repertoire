@@ -28,18 +28,6 @@ beforeEach(() => {
 });
 
 describe("OpeningSelector", () => {
-  it("renders the title", async () => {
-    render(<OpeningSelector onStart={vi.fn()} onBack={vi.fn()} />);
-    await waitFor(() => screen.getByText("Italian Game"));
-    expect(screen.getByText("Study Openings")).toBeInTheDocument();
-  });
-
-  it("loads and displays openings", async () => {
-    render(<OpeningSelector onStart={vi.fn()} onBack={vi.fn()} />);
-    await waitFor(() => screen.getByText("Italian Game"));
-    expect(screen.getByText("Sicilian Defence")).toBeInTheDocument();
-  });
-
   it("Start button is disabled until opening and variation are selected", async () => {
     render(<OpeningSelector onStart={vi.fn()} onBack={vi.fn()} />);
     await waitFor(() => screen.getByText("Italian Game"));

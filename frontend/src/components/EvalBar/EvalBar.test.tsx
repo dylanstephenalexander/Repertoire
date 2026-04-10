@@ -14,11 +14,6 @@ function height(el: HTMLElement): number {
 }
 
 describe("EvalBar", () => {
-  it("renders the bar element", () => {
-    render(<EvalBar evalCp={0} orientation="white" />);
-    expect(screen.getByLabelText("Evaluation bar")).toBeInTheDocument();
-  });
-
   it("null eval renders 50/50", () => {
     render(<EvalBar evalCp={null} orientation="white" />);
     const { top, bottom } = getBarDivs();

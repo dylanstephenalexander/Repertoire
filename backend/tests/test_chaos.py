@@ -332,3 +332,33 @@ def test_chaos_sessions_isolated_between_tests():
     chaos_svc.clear_chaos_sessions()
     resp = client.post(f"/chaos/{sid}/move", json={"uci_move": "e2e4", "feedback_enabled": False})
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Explanation endpoint — idempotency and not-ready state
+# ---------------------------------------------------------------------------
+
+def test_chaos_explanation_endpoint_returns_null_when_not_ready():
+    sid = _start()
+    resp = client.get(f"/chaos/{sid}/explanation")
+    assert resp.status_code == 200
+    assert resp.json()["explanation"] is None
+    assert resp.json()["llm_debug"] is None
+
+
+def test_chaos_explanation_endpoint_returns_data_when_ready():
+    sid = _start()
+    chaos_svc._pending_chaos_explanations[sid] = ("Knight is hanging.", "gemini-2.0-flash — OK\n\nKnight is hanging.")
+    resp = client.get(f"/chaos/{sid}/explanation")
+    assert resp.json()["explanation"] == "Knight is hanging."
+    assert "OK" in resp.json()["llm_debug"]
+
+
+def test_chaos_explanation_endpoint_is_idempotent():
+    """Second call returns the same result — not consumed on first read."""
+    sid = _start()
+    chaos_svc._pending_chaos_explanations[sid] = ("Blunder.", "gemini-2.0-flash — OK\n\nBlunder.")
+    resp1 = client.get(f"/chaos/{sid}/explanation")
+    resp2 = client.get(f"/chaos/{sid}/explanation")
+    assert resp1.json() == resp2.json()
+    assert resp2.json()["explanation"] == "Blunder."

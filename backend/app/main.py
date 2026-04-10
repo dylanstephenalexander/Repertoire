@@ -3,8 +3,8 @@ import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from dotenv import load_dotenv
-load_dotenv()
+from dotenv import find_dotenv, load_dotenv
+load_dotenv(find_dotenv(usecwd=False))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
