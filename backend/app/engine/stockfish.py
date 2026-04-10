@@ -174,5 +174,5 @@ class StockfishEngine:
             "eval_cp": best["cp"] if best else None,
             "best_move": best["move_uci"] if best else None,
             "lines": lines,
-            "depth": best_depth,
+            "depth": max(depth_by_pv.values()) if depth_by_pv else 0,
         }
