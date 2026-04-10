@@ -93,6 +93,8 @@ class StockfishEngine:
         effective_depth = depth if depth is not None else self._depth
         with self._lock:
             self._send(f"setoption name MultiPV value {effective_multipv}")
+            self._send("isready")
+            self._wait_for("readyok")
             self._set_position(fen, moves)
             self._send(f"go depth {effective_depth}")
             return self._collect_multipv_result()
