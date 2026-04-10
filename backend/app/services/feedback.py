@@ -1,7 +1,7 @@
 from app.models.feedback import AnalysisLine, Feedback
 
-ALTERNATIVE_THRESHOLD_CP = 25
-BLUNDER_THRESHOLD_CP = 150
+ALTERNATIVE_THRESHOLD_CP = 50
+BLUNDER_THRESHOLD_CP = 200
 
 
 def quality_from_cp_loss(cp_loss: int) -> str:

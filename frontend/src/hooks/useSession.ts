@@ -223,7 +223,9 @@ export function useSession(): UseSessionReturn {
           : s
       );
 
-      if (resp.result === "correct") {
+      if (mate) {
+        // game over — don't trigger opponent move
+      } else if (resp.result === "correct") {
         await triggerOpponentMove(session.sessionId, newScore, newMoveCount);
       } else {
         setSession((s) => (s ? { ...s, status: "awaiting_decision" } : s));

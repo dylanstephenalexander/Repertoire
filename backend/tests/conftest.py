@@ -63,12 +63,16 @@ def engine_fine():
 
 @pytest.fixture()
 def engine_mistake():
-    return MockStockfishEngine(eval_before=20, eval_after=60)
+    # 1 state drop = mistake: pre=+200 (WINNING, state 5), user_post=+60 (ADVANTAGE, state 4)
+    # post is from opponent's POV, so eval_after = -60
+    return MockStockfishEngine(eval_before=200, eval_after=-60)
 
 
 @pytest.fixture()
 def engine_blunder():
-    return MockStockfishEngine(eval_before=20, eval_after=200)
+    # 3+ state drops = blunder: pre=+500 (WINNING, state 5), user_post=-300 (LOSING, state 1) = 4 drops
+    # post from opponent's POV = +300, so eval_after=300
+    return MockStockfishEngine(eval_before=500, eval_after=300)
 
 
 @pytest.fixture()

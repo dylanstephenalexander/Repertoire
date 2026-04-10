@@ -256,11 +256,6 @@ export function useChaos(): UseChaosReturn {
         };
       });
 
-      const postMoveBoard = new Chess(resp.fen);
-      if (!postMoveBoard.isCheckmate()) {
-        await triggerOpponentMove(capturedSessionId);
-      }
-
       if (!mate && isMistakeOrBlunder) {
         if (abortExplanationPollRef.current) abortExplanationPollRef.current.aborted = true;
         const signal = { aborted: false };
@@ -296,6 +291,10 @@ export function useChaos(): UseChaosReturn {
             });
           },
         );
+      }
+
+      if (!mate) {
+        await triggerOpponentMove(capturedSessionId);
       }
     },
     [chaosSession, triggerOpponentMove]

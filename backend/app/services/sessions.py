@@ -48,6 +48,64 @@ _pending_explanations: dict[str, tuple[str, str]] = {}
 # Start at 3 (same cost as old inline pre_eval) and increase once benchmarked.
 PRE_EVAL_MULTIPV = 3
 
+# ---------------------------------------------------------------------------
+# Evaluation state classification
+# ---------------------------------------------------------------------------
+
+# Stockfish encodes forced mate as ±30000. Anything beyond ±9000 is a mate score
+# (well outside the range of normal material/positional evaluations).
+_MATE_THRESHOLD = 9000
+
+
+def _eval_state(cp: int) -> int:
+    """
+    Classify a centipawn score into a state bucket (higher = better for the side).
+    cp must be from the side-to-move's perspective (positive = winning).
+
+      7  MATE          cp ≥  9000
+      6  CRUSHING      cp ≥   700
+      5  WINNING       cp ≥   200
+      4  ADVANTAGE     cp ≥    50
+      3  EQUAL         cp ≥   -50
+      2  DISADVANTAGE  cp ≥  -200
+      1  LOSING        cp ≥  -700
+      0  LOST          cp <  -700  (or opponent has forced mate)
+    """
+    if cp >= _MATE_THRESHOLD:  return 7
+    if cp >= 700:              return 6
+    if cp >= 200:              return 5
+    if cp >=  50:              return 4
+    if cp >= -50:              return 3
+    if cp >= -200:             return 2
+    if cp >= -700:             return 1
+    return 0
+
+
+def _state_cp_loss(pre_cp: int, user_post_cp: int) -> int:
+    """
+    Compute a feedback-appropriate cp_loss via evaluation-state classification.
+
+    Avoids the classic mate-score inflation bug: being up +30000 (forced mate)
+    then playing a move that drops to +800 (still completely winning) looks like
+    a 29200cp blunder under raw arithmetic but is a 1-state drop (MATE→CRUSHING)
+    which correctly produces no significant feedback.
+
+    pre_cp:       eval before user's move — user's POV (positive = user winning)
+    user_post_cp: eval after user's move  — user's POV (positive = user still winning)
+
+    Synthetic cp_loss values are calibrated to ALTERNATIVE_THRESHOLD (50) and
+    BLUNDER_THRESHOLD (200) defined in feedback.py:
+      0 drops → 0    no feedback
+      1 drop  → 75   mistake (50 < 75 < 200)
+      2 drops → 150  mistake
+      3+ drops → 250 blunder (≥ 200)
+    """
+    drop = _eval_state(pre_cp) - _eval_state(user_post_cp)
+    if drop <= 0:  return 0
+    if drop == 1:  return 75
+    if drop == 2:  return 150
+    return 250
+
 
 def set_engine(engine: StockfishEngine | None) -> None:
     global _engine
@@ -203,13 +261,13 @@ def evaluate_off_tree_eval(
     if user_line_cp is not None:
         # Post already running but we don't need it for cp — still collect opponent response
         post_result, post_t = post_future.result()
-        cp_loss = max(0, pre_cp - user_line_cp)
+        cp_loss = _state_cp_loss(pre_cp, user_line_cp)
         opponent_uci = post_result.get("best_move")
         debug = f"{think_line}\nPre-move Stockfish: {pre_t:.2f}s (waited {pre_wait:.2f}s extra)\nPost-move Stockfish: {post_t:.2f}s (opponent only)"
     else:
         post_result, post_t = post_future.result()
-        post_cp = post_result.get("eval_cp") or 0
-        cp_loss = max(0, pre_cp + post_cp)
+        user_post_cp = -(post_result.get("eval_cp") or 0)
+        cp_loss = _state_cp_loss(pre_cp, user_post_cp)
         opponent_uci = post_result.get("best_move")
         debug = f"{think_line}\nPre-move Stockfish: {pre_t:.2f}s (waited {pre_wait:.2f}s extra)\nPost-move Stockfish: {post_t:.2f}s"
 
@@ -223,7 +281,8 @@ def _evaluate_from_pre_eval_no_post(
     """Move was in pre_eval lines — compute cp_loss directly, no engine call."""
     user_line_cp = _find_line_cp(pre_eval.get("lines", []), uci_move)
     pre_cp = pre_eval.get("eval_cp") or 0
-    cp_loss = max(0, pre_cp - (user_line_cp or 0))
+    # user_line_cp is from the same pre-move POV, so it's directly comparable
+    cp_loss = _state_cp_loss(pre_cp, user_line_cp or 0)
     return cp_loss, pre_eval.get("lines", []), pre_eval.get("best_move")
 
 
@@ -236,8 +295,8 @@ def _evaluate_post_only(
     """Move was outside pre_eval lines — run post_eval; returns cp + opponent response."""
     pre_cp = pre_eval.get("eval_cp") or 0
     post_result, post_t = _run_analysis(_engine, new_fen, elo, 1, FEEDBACK_DEPTH // 2)
-    post_cp = post_result.get("eval_cp") or 0
-    cp_loss = max(0, pre_cp + post_cp)
+    user_post_cp = -(post_result.get("eval_cp") or 0)  # flip: post is opponent's POV
+    cp_loss = _state_cp_loss(pre_cp, user_post_cp)
     return cp_loss, pre_eval.get("lines", []), pre_eval.get("best_move"), post_result.get("best_move"), post_t
 
 
@@ -251,8 +310,8 @@ def _evaluate_serial(
     pre_result, pre_t = _run_analysis(_engine, pre_fen, elo, PRE_EVAL_MULTIPV, FEEDBACK_DEPTH)
     post_result, post_t = _run_analysis(_engine, new_fen, elo, 1, FEEDBACK_DEPTH // 2)
     pre_cp = pre_result.get("eval_cp") or 0
-    post_cp = post_result.get("eval_cp") or 0
-    cp_loss = max(0, pre_cp + post_cp)
+    user_post_cp = -(post_result.get("eval_cp") or 0)  # flip: post is opponent's POV
+    cp_loss = _state_cp_loss(pre_cp, user_post_cp)
     return (cp_loss, pre_result.get("lines", []), pre_result.get("best_move"), post_result.get("best_move")), pre_t, post_t
 
 
