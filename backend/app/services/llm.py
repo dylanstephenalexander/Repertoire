@@ -50,7 +50,6 @@ async def get_explanation(
     played_san: str,
     best_san: str,
     cp_loss: int,
-    quality: str,
     tactical_facts: list[str],
 ) -> tuple[str | None, str]:
     """
@@ -59,22 +58,35 @@ async def get_explanation(
     llm_debug is always a human-readable string for the debug panel.
     """
     if _provider is None:
-        return None, "LLM: fallback (no provider configured)"
-    quality_word = "blunder" if quality == "blunder" else "mistake"
-    facts_block = ("\nKnown facts:\n" + "\n".join(f"- {f}" for f in tactical_facts)) if tactical_facts else ""
+        return None, "No provider configured (GEMINI_API_KEY not set)"
+    model = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+
+    if tactical_facts:
+        facts_section = (
+            "Verified facts about this position:\n"
+            + "\n".join(f"- {f}" for f in tactical_facts)
+            + "\n\nBase your explanation on these facts. "
+            "Do not mention threats, captures, or pieces not listed above."
+        )
+    else:
+        facts_section = "No concrete tactical facts were detected — give an honest general explanation."
+
     prompt = (
-        f"Chess position (FEN: {pre_move_fen}).\n"
-        f"The player played {played_san} instead of {best_san}, losing {cp_loss} centipawns (a {quality_word}).\n"
-        f"{facts_block}\n"
-        f"\n"
-        f"In one short, casual sentence, explain specifically why {played_san} was a {quality_word}.\n"
-        f"Name the pieces and squares involved. Do not just say it wasn't the best move."
+        f"FEN: {pre_move_fen}\n"
+        f"Played: {played_san} | Best: {best_san} | Loss: {cp_loss}cp\n\n"
+        f"{facts_section}\n\n"
+        f"In 1–2 sentences, explain the concrete reason {played_san} was bad. "
+        f"Name the pieces and squares. State what the opponent does next.\n"
+        f"Good: 'The knight on f6 is now undefended — Bxf6 wins a piece immediately.'\n"
+        f"Bad: 'This move isn't the best and loses material.'"
     )
+
     try:
         logger.info("Gemini called. Prompt: %s", prompt)
         result = await _provider.explain(prompt)
         logger.info("Gemini response: %s", result)
-        return result, f"LLM: Gemini called.\nPrompt: {prompt}\nResponse: {result}"
+        return result, f"{model} — OK\n\n{result}"
     except Exception as exc:
         logger.warning("Gemini call failed: %s", exc)
-        return None, f"LLM: Gemini failed ({exc})"
+        summary = str(exc).split("{")[0].strip().rstrip(".")
+        return None, f"{model} — {summary}"

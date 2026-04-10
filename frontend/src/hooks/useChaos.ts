@@ -12,7 +12,7 @@ import type { Feedback, PositionEntry } from "../types";
 
 async function pollChaosExplanation(
   sessionId: string,
-  onReady: (explanation: string, llmDebug: string | null) => void,
+  onReady: (explanation: string | null, llmDebug: string) => void,
   onGiveUp: () => void,
   maxAttempts = 12,
   intervalMs = 1000,
@@ -21,7 +21,7 @@ async function pollChaosExplanation(
     await new Promise((r) => setTimeout(r, intervalMs));
     try {
       const resp = await fetchChaosExplanation(sessionId);
-      if (resp.explanation) {
+      if (resp.llm_debug !== null) {
         onReady(resp.explanation, resp.llm_debug);
         return;
       }
@@ -246,16 +246,18 @@ export function useChaos(): UseChaosReturn {
           (explanation, llmDebug) => {
             setChaosSession((s) => {
               if (!s || s.sessionId !== capturedSessionId) return s;
-              const updatedPositions = s.positions.map((p, i) =>
-                i === userMovePositionIdx && p.feedback
-                  ? { ...p, feedback: { ...p.feedback, explanation, llm_explanation: true } }
-                  : p
-              );
+              const updatedPositions = explanation
+                ? s.positions.map((p, i) =>
+                    i === userMovePositionIdx && p.feedback
+                      ? { ...p, feedback: { ...p.feedback, explanation, llm_explanation: true } }
+                      : p
+                  )
+                : s.positions;
               return {
                 ...s,
                 explanationPending: false,
                 llmDebugMsg: llmDebug,
-                feedback: s.feedback
+                feedback: s.feedback && explanation
                   ? { ...s.feedback, explanation, llm_explanation: true }
                   : s.feedback,
                 positions: updatedPositions,

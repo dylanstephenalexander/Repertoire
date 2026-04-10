@@ -328,6 +328,7 @@ export function App() {
             debugMsg={currentDebugMsg}
             opponentMoveDebug={currentOpponentMoveDebug}
             llmDebugMsg={currentLlmDebugMsg}
+            explanationPending={currentExplanationPending}
           />
 
           {/* Feedback panel — live or historical */}
@@ -336,7 +337,6 @@ export function App() {
               feedback={displayFeedback}
               awaitingDecision={currentStatus === "awaiting_decision"}
               notationMode={notationMode}
-              explanationPending={currentExplanationPending}
               onRetry={retry}
               onContinue={continuePlay}
               onRestart={async () => {
@@ -350,7 +350,6 @@ export function App() {
               feedback={displayFeedback}
               awaitingDecision={false}
               notationMode={notationMode}
-              explanationPending={false}
               onRetry={async () => {}}
               onContinue={async () => {}}
               onRestart={async () => {}}

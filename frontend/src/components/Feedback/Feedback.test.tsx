@@ -9,7 +9,6 @@ const noop = vi.fn();
 const defaultProps = {
   awaitingDecision: false,
   notationMode: "notation" as const,
-  explanationPending: false,
   onRetry: noop,
   onContinue: noop,
   onRestart: noop,

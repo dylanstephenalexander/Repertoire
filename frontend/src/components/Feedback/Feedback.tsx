@@ -6,7 +6,6 @@ interface FeedbackProps {
   feedback: FeedbackType | null;
   awaitingDecision: boolean;
   notationMode: NotationMode;
-  explanationPending: boolean;
   onRetry: () => void;
   onContinue: () => void;
   onRestart: () => void;
@@ -24,7 +23,6 @@ export function Feedback({
   feedback,
   awaitingDecision,
   notationMode,
-  explanationPending,
   onRetry,
   onContinue,
   onRestart,
@@ -38,7 +36,6 @@ export function Feedback({
       <span className={styles.label}>{QUALITY_LABELS[feedback.quality]}</span>
       <p className={styles.explanation}>
         {feedback.llm_explanation ? feedback.explanation : translateExplanation(feedback.explanation, notationMode)}
-        {explanationPending && <span className={styles.analyzing}> Analyzing...</span>}
       </p>
       {awaitingDecision && (
         <div className={styles.actions}>

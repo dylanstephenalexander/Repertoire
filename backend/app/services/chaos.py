@@ -161,10 +161,9 @@ def get_chaos_opponent_move(session_id: str) -> ChaosOpponentMoveResponse:
 _pending_chaos_explanations: dict[str, tuple[str, str]] = {}
 
 
-async def _store_chaos_explanation(session_id: str, pre_fen: str, played_san: str, best_san: str, cp_loss: int, quality: str, tactical_facts: list[str]) -> None:
-    explanation, llm_debug = await get_explanation(pre_fen, played_san, best_san, cp_loss, quality, tactical_facts)
-    if explanation:
-        _pending_chaos_explanations[session_id] = (explanation, llm_debug)
+async def _store_chaos_explanation(session_id: str, pre_fen: str, played_san: str, best_san: str, cp_loss: int, tactical_facts: list[str]) -> None:
+    explanation, llm_debug = await get_explanation(pre_fen, played_san, best_san, cp_loss, tactical_facts)
+    _pending_chaos_explanations[session_id] = (explanation, llm_debug)
 
 
 def pop_pending_chaos_explanation(session_id: str) -> tuple[str, str] | None:
@@ -235,7 +234,7 @@ async def _build_chaos_feedback(
 
     quality = quality_from_cp_loss(cp_loss)
     tactical_facts = _derive_tactical_facts(pre_board, post_board, move, opponent_uci, played_san, best_san)
-    asyncio.create_task(_store_chaos_explanation(session_id, pre_fen, played_san, best_san, cp_loss, quality, tactical_facts))
+    asyncio.create_task(_store_chaos_explanation(session_id, pre_fen, played_san, best_san, cp_loss, tactical_facts))
     return build_mistake_feedback(played_san, best_san, cp_loss, lines=lines), debug_msg
 
 

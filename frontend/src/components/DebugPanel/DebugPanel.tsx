@@ -4,24 +4,30 @@ interface DebugPanelProps {
   debugMsg: string | null;
   opponentMoveDebug: string | null;
   llmDebugMsg: string | null;
+  explanationPending: boolean;
 }
 
-export function DebugPanel({ debugMsg, opponentMoveDebug, llmDebugMsg }: DebugPanelProps) {
-  if (!debugMsg && !opponentMoveDebug && !llmDebugMsg) return null;
+export function DebugPanel({ debugMsg, opponentMoveDebug, llmDebugMsg, explanationPending }: DebugPanelProps) {
+  const showEngine = debugMsg || opponentMoveDebug;
+  const showLlm = explanationPending || llmDebugMsg;
+  if (!showEngine && !showLlm) return null;
 
   return (
     <>
-      {(debugMsg || opponentMoveDebug) && (
+      {showEngine && (
         <div className={styles.panel}>
           <span className={styles.label}>Engine Timing</span>
           {opponentMoveDebug && <p className={styles.msg}>{opponentMoveDebug}</p>}
           {debugMsg && <p className={styles.msg}>{debugMsg}</p>}
         </div>
       )}
-      {llmDebugMsg && (
+      {showLlm && (
         <div className={styles.panel}>
           <span className={styles.label}>LLM</span>
-          <p className={styles.msg}>{llmDebugMsg}</p>
+          {explanationPending
+            ? <p className={styles.pending}>Polling...</p>
+            : <p className={styles.msg}>{llmDebugMsg}</p>
+          }
         </div>
       )}
     </>

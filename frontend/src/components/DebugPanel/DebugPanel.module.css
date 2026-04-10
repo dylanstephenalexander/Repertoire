@@ -23,3 +23,11 @@
   line-height: 1.6;
   white-space: pre-wrap;
 }
+
+.pending {
+  margin: 0;
+  font-size: 0.78rem;
+  font-family: monospace;
+  color: #555;
+  font-style: italic;
+}

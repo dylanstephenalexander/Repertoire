@@ -75,11 +75,10 @@ def clear_sessions() -> None:
     _pending_explanations.clear()
 
 
-async def _store_explanation(session_id: str, pre_fen: str, played_san: str, best_san: str, cp_loss: int, quality: str, tactical_facts: list[str]) -> None:
+async def _store_explanation(session_id: str, pre_fen: str, played_san: str, best_san: str, cp_loss: int, tactical_facts: list[str]) -> None:
     """Background task: fetch LLM explanation and store it for polling."""
-    explanation, llm_debug = await get_explanation(pre_fen, played_san, best_san, cp_loss, quality, tactical_facts)
-    if explanation:
-        _pending_explanations[session_id] = (explanation, llm_debug)
+    explanation, llm_debug = await get_explanation(pre_fen, played_san, best_san, cp_loss, tactical_facts)
+    _pending_explanations[session_id] = (explanation, llm_debug)
 
 
 def pop_pending_explanation(session_id: str) -> tuple[str, str] | None:
@@ -370,7 +369,7 @@ async def process_move(session_id: str, uci_move: str) -> MoveResult:
         post_board = chess.Board(new_fen)
         tactical_facts = _derive_tactical_facts(pre_board, post_board, move, opponent_uci, played_san, best_san)
         # Fire LLM in background — client polls /session/{id}/explanation
-        asyncio.create_task(_store_explanation(session_id, pre_fen, played_san, best_san, cp_loss, quality, tactical_facts))
+        asyncio.create_task(_store_explanation(session_id, pre_fen, played_san, best_san, cp_loss, tactical_facts))
 
     _update_session(session, uci_move, new_fen, {})
     return MoveResult(result=result, feedback=feedback, fen=new_fen, debug_msg=debug_msg)
