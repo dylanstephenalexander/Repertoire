@@ -51,6 +51,11 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
+}
+
+.hintRow > button {
+  flex: 1;
 }
 
 .guidedLabel {
@@ -72,25 +77,6 @@
 }
 
 .guidedToggle:hover {
-  color: #888;
-}
-
-.notationToggle {
-  align-self: flex-start;
-  padding: 2px 8px;
-  background: transparent;
-  border: 1px solid #333;
-  border-radius: 4px;
-  color: #555;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.notationToggle:hover {
-  border-color: #555;
   color: #888;
 }
 
@@ -120,6 +106,25 @@
   font-weight: 600;
   color: #64b4ff;
   font-family: monospace;
+}
+
+.notationToggle {
+  align-self: flex-start;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #555;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.notationToggle:hover {
+  border-color: #555;
+  color: #888;
 }
 
 .completeActions {
@@ -277,20 +282,4 @@
   gap: 8px;
   font-size: 0.85rem;
   color: #999;
-}
-
-.guidedPromptBtn {
-  padding: 3px 10px;
-  background: transparent;
-  border: 1px solid #444;
-  border-radius: 4px;
-  color: #aaa;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.guidedPromptBtn:hover {
-  border-color: #7faaff;
-  color: #7faaff;
 }

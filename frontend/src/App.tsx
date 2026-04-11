@@ -315,8 +315,8 @@ export function App() {
                   {session!.hint ? (
                     <span className={styles.hintText}>{session!.hint.san}</span>
                   ) : (
-                    <button className={styles.guidedToggle} onClick={() => setGuided(true)}>
-                      Guided mode
+                    <button className={styles.hintButton} onClick={() => setGuided(true)}>
+                      Guided Mode
                     </button>
                   )}
                 </div>
@@ -339,10 +339,10 @@ export function App() {
               {rejection.showGuidedPrompt && (
                 <div className={styles.guidedPrompt}>
                   <span>Turn on guided mode?</span>
-                  <button className={styles.guidedPromptBtn} onClick={() => { setGuided(true); dismissRejection(); }}>
+                  <button className={styles.toggleBtn} onClick={() => { setGuided(true); dismissRejection(); }}>
                     Yes
                   </button>
-                  <button className={styles.guidedPromptBtn} onClick={dismissRejection}>
+                  <button className={styles.toggleBtn} onClick={dismissRejection}>
                     No
                   </button>
                 </div>
