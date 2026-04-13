@@ -5,7 +5,7 @@ import {
   SOUND_THEMES,
   type ThemeId,
 } from "../../themes";
-import { type UserSettings } from "../../hooks/useSettings";
+import { type UserSettings } from "../../contexts/SettingsContext";
 import styles from "./Settings.module.css";
 
 interface SettingsProps {
