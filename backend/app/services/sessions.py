@@ -46,6 +46,12 @@ _pre_eval_submit_times: dict[str, float] = {}
 # not a polling loop. Shared by study and chaos sessions (UUIDs don't collide).
 _llm_futures: dict[str, "asyncio.Future[tuple[str | None, str]]"] = {}
 
+# Per-session asyncio.Lock that serialises concurrent process_move calls.
+# Without this, two simultaneous moves on the same session can both read the
+# same current_fen, run analysis in parallel threads, then both write back —
+# corrupting move_history, score, and current_fen.
+_session_locks: dict[str, asyncio.Lock] = {}
+
 # Long-poll wait cap. Should exceed the LLM timeout (8s in llm.py) so the
 # Future has time to resolve naturally even on slow LLM responses.
 LLM_EXPLANATION_TIMEOUT = 12.0
@@ -131,12 +137,20 @@ def get_analysis_engine() -> StockfishEngine | None:
     return _analysis_engine
 
 
+def _get_session_lock(session_id: str) -> asyncio.Lock:
+    """Return (creating if absent) the per-session asyncio.Lock for process_move."""
+    if session_id not in _session_locks:
+        _session_locks[session_id] = asyncio.Lock()
+    return _session_locks[session_id]
+
+
 def clear_sessions() -> None:
     """Clear all in-memory sessions. For testing only."""
     _sessions.clear()
     _pre_eval_futures.clear()
     _pre_eval_submit_times.clear()
     _llm_futures.clear()
+    _session_locks.clear()
 
 
 def start_explanation_task(
@@ -393,6 +407,11 @@ def get_session(session_id: str) -> SessionState | None:
 
 
 async def process_move(session_id: str, uci_move: str) -> MoveResult:
+    async with _get_session_lock(session_id):
+        return await _process_move_locked(session_id, uci_move)
+
+
+async def _process_move_locked(session_id: str, uci_move: str) -> MoveResult:
     session = _sessions.get(session_id)
     if session is None:
         raise KeyError(f"Session not found: {session_id}")

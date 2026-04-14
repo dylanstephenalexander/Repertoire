@@ -1,6 +1,8 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.models.feedback import MoveResult
 from app.services import sessions as session_svc
 
 client = TestClient(app)
@@ -499,3 +501,62 @@ def test_state_cp_loss_threw_away_mate_is_blunder():
 def test_state_cp_loss_improvement_is_zero():
     """Gaining a state produces zero, not negative, loss."""
     assert _state_cp_loss(0, 300) == 0  # EQUAL → WINNING (position improved)
+
+
+# ---------------------------------------------------------------------------
+# Concurrent move serialisation — process_move must hold a per-session lock
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_concurrent_off_tree_moves_do_not_corrupt_state():
+    """
+    Two simultaneous off-tree process_move calls on the same session must be
+    serialised. Without the per-session lock the race is:
+      1. Coroutine A reads current_fen = FEN0, enters asyncio.to_thread (yields).
+      2. Coroutine B reads current_fen = FEN0 (same — A hasn't written back).
+      3. Both threads run analysis on FEN0 in parallel.
+      4. Both write back: move_history gets two entries, score doubles.
+
+    With the lock, B waits until A completes and advances the FEN. B then reads
+    FEN1 (after d2d4 it is Black's turn) and raises ValueError for the illegal
+    move — exactly one entry in move_history and score untouched at 0.
+    """
+    import asyncio
+
+    class SlowEngine:
+        """Sleeps briefly in analyse() to open the race window between coroutines."""
+        def analyse(self, fen, moves=None, multipv=None, depth=None):
+            import time
+            time.sleep(0.02)
+            return {
+                "eval_cp": 200,
+                "best_move": "e2e4",
+                "lines": [{"move_uci": "e2e4", "cp": 200}],
+                "depth": 12,
+            }
+        def set_elo(self, elo): pass
+        def clear_elo(self): pass
+
+    session_svc.set_engine(SlowEngine())
+    session_svc.set_analysis_engine(None)
+
+    result = session_svc.create_session("italian", "giuoco_piano", "white", "freestyle", None)
+    sid = result.session_id
+
+    # Fire two off-tree moves concurrently; collect exceptions rather than raising.
+    outcomes = await asyncio.gather(
+        session_svc.process_move(sid, "d2d4"),
+        session_svc.process_move(sid, "d2d4"),
+        return_exceptions=True,
+    )
+
+    state = session_svc.get_session(sid)
+    assert len(state.move_history) == 1, (
+        f"Expected exactly 1 move in history after concurrent requests, "
+        f"got {len(state.move_history)}: {state.move_history}"
+    )
+    # Exactly one call should succeed; the other should be an error (illegal move on updated FEN)
+    successes = [o for o in outcomes if isinstance(o, MoveResult)]
+    errors = [o for o in outcomes if isinstance(o, Exception)]
+    assert len(successes) == 1, f"Expected 1 success, got {len(successes)}"
+    assert len(errors) == 1, f"Expected 1 error (illegal move on updated FEN), got {len(errors)}"
